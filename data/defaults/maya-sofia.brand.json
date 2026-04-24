@@ -1,0 +1,146 @@
+{
+  "schema_version": "v2026.1",
+  "id": "maya-sofia-default",
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "updated_at": "2026-01-01T00:00:00.000Z",
+  "identity": {
+    "name": "Maya Sofia",
+    "tagline": "Quiet Luxury, Curated Daily",
+    "one_word": "Elegance",
+    "mission_statement": "Maya Sofia is a quiet-luxury AI fashion brand built for women who dress with intention. Every piece is curated, every outfit tells a story, and every pin is crafted to inspire confidence without noise.",
+    "operator_name": "Ahsan",
+    "primary_market": "US, Canada, UK"
+  },
+  "visual_system": {
+    "palette": [
+      { "name": "Warm Ivory", "hex": "#F5F0E8" },
+      { "name": "Dusty Rose", "hex": "#C9A99A" },
+      { "name": "Soft Sage", "hex": "#B5C4B1" },
+      { "name": "Muted Gold", "hex": "#C9B458" },
+      { "name": "Deep Espresso", "hex": "#3E2723" }
+    ],
+    "typography": {
+      "headline": "Playfair Display",
+      "body": "Inter"
+    },
+    "keywords": ["Warm", "Minimal", "Tailored", "Timeless", "Quiet", "Intentional", "Refined"],
+    "never": ["Fast", "Loud", "Trendy", "Cheap", "Flashy", "Hustle"],
+    "moodboard_images": []
+  },
+  "voice": {
+    "register": "Elevated-casual, confident, intentional. Like a trusted stylist friend who studied at Parsons.",
+    "audience_address": "Second person singular — 'you', never 'girls' or 'ladies'",
+    "sentence_rules": "Short declarative sentences. Max 2 clauses per sentence. End with period, not exclamation. One rhetorical question per 500 words max.",
+    "forbidden_per_niche": {
+      "workwear": ["basic", "boring", "corporate"],
+      "weekend": ["lazy", "sloppy", "casual"],
+      "evening": ["slutty", "revealing", "party"]
+    },
+    "signature_openers": [
+      "This is quiet confidence.",
+      "Less is always more.",
+      "The details tell the story.",
+      "Dress with intention.",
+      "Invest in fewer, better pieces."
+    ],
+    "power_words": ["intentional", "curated", "timeless", "refined", "effortless", "elevated", "crafted", "considered", "understated", "polished"],
+    "emotional_arcs": {
+      "workwear": "uncertainty → quiet authority → boardroom confidence",
+      "weekend": "overwhelm → intentional simplicity → effortless joy",
+      "evening": "wardrobe panic → curated selection → magnetic presence"
+    }
+  },
+  "model_persona": {
+    "hair": "warm chestnut brown, soft natural waves past shoulders",
+    "eyes": "deep brown, warm",
+    "skin": "warm olive, sun-kissed",
+    "height_build": "5'7\", lean-athletic",
+    "distinguishing": "light freckles across nose and cheeks",
+    "accessories": ["small jade pendant necklace", "thin gold ring stack", "tortoiseshell sunglasses"],
+    "style_philosophy": "Quiet luxury meets Parisian ease — every piece earns its place in the wardrobe through versatility and timeless design.",
+    "reference_images": [],
+    "seasonal_shifts": {
+      "spring": "light layers, soft pastels over warm neutrals",
+      "summer": "breathable linens, minimal jewelry, sun-kissed warmth",
+      "fall": "rich textures, layered knits, deep warm tones",
+      "winter": "structured coats, luxe fabrics, considered accessories"
+    },
+    "nano_banana_face_reference": "Young woman, warm olive skin, light freckles across nose and cheeks, deep brown eyes, warm chestnut brown hair with soft natural waves past shoulders, lean-athletic build, wearing small jade pendant necklace and thin gold ring stack"
+  },
+  "niches": [
+    {
+      "id": "niche-workwear",
+      "name": "Quiet Luxury Workwear",
+      "hook": "Boardroom-ready pieces that whisper success",
+      "audience": "Professional women 25-45 who want to project quiet authority",
+      "emotional_targets": ["confidence", "authority", "polish"],
+      "hero_pieces": ["tailored blazer", "silk blouse", "wide-leg trousers", "structured bag", "pointed-toe flats"],
+      "color_story": ["#F5F0E8", "#3E2723", "#C9B8A8"],
+      "keywords": ["workwear", "office", "boardroom", "professional", "tailored", "power dressing"],
+      "forbidden": ["basic", "boring", "corporate", "cheap", "fast fashion"],
+      "content_pillars": ["Monday power outfits", "client meeting looks", "business travel capsules", "desk-to-dinner transitions"],
+      "monetization_horizon": "Affiliate links to premium workwear brands",
+      "seasonal_weighting": "year-round with seasonal fabric rotation",
+      "rotation_days": ["Mon", "Wed"]
+    },
+    {
+      "id": "niche-weekend",
+      "name": "Weekend Capsule",
+      "hook": "Effortless Saturday mornings, intentionally styled",
+      "audience": "Women who want to look put-together on weekends without trying too hard",
+      "emotional_targets": ["ease", "joy", "freedom"],
+      "hero_pieces": ["cashmere crew neck", "white sneakers", "linen shirt", "crossbody bag", "oversized sunglasses"],
+      "color_story": ["#C9A99A", "#B5C4B1", "#F5F0E8"],
+      "keywords": ["weekend", "capsule", "casual", "effortless", "relaxed", "brunch"],
+      "forbidden": ["sloppy", "lazy", "basic", "dupe", "fast fashion"],
+      "content_pillars": ["Saturday morning outfits", "brunch looks", "farmers market style", "weekend getaway capsules"],
+      "monetization_horizon": "Affiliate links to lifestyle brands",
+      "seasonal_weighting": "spring/summer emphasis",
+      "rotation_days": ["Tue", "Thu"]
+    },
+    {
+      "id": "niche-evening",
+      "name": "Evening Edit",
+      "hook": "Confidence after dark",
+      "audience": "Women preparing for dinners, events, and evening occasions",
+      "emotional_targets": ["allure", "confidence", "sophistication"],
+      "hero_pieces": ["slip dress", "statement earrings", "clutch", "heeled sandals", "draped blazer"],
+      "color_story": ["#3E2723", "#C9B458", "#C9A99A"],
+      "keywords": ["evening", "dinner", "event", "cocktail", "date night", "elegant"],
+      "forbidden": ["slutty", "revealing", "party", "clubbing", "cheap"],
+      "content_pillars": ["Date night outfits", "gallery opening looks", "dinner party ensembles", "event dressing guides"],
+      "monetization_horizon": "Affiliate links to evening wear brands",
+      "seasonal_weighting": "fall/winter emphasis",
+      "rotation_days": ["Fri", "Sat"]
+    }
+  ],
+  "pinterest": {
+    "profile_name": "Maya Sofia",
+    "bio": "Quiet luxury, curated daily. Intentional fashion for women who dress with purpose.",
+    "url": "https://pinterest.com/mayasofia",
+    "boards": [
+      { "name": "Quiet Luxury Workwear", "description": "Boardroom-ready pieces that whisper success", "cover_color": "#3E2723" },
+      { "name": "Weekend Capsule", "description": "Effortless Saturday mornings, intentionally styled", "cover_color": "#B5C4B1" },
+      { "name": "Evening Edit", "description": "Confidence after dark", "cover_color": "#C9B458" }
+    ],
+    "default_hashtags": ["#mayasofia", "#quietluxury", "#capsulewardrobe", "#intentionalstyle"],
+    "posting_frequency": "3 pins per day, 5 days per week"
+  },
+  "file_naming": {
+    "template": "{brand}-{niche}-{item}-{date}-{version}.jpg"
+  },
+  "seo": {
+    "primary_keywords_per_niche": {
+      "workwear": ["quiet luxury workwear", "professional capsule wardrobe", "boardroom fashion", "tailored office outfits"],
+      "weekend": ["weekend capsule wardrobe", "effortless casual style", "minimal weekend outfits", "relaxed luxury fashion"],
+      "evening": ["evening wear capsule", "elegant dinner outfits", "sophisticated event dressing", "date night fashion"]
+    },
+    "longtail_bank": [
+      "how to build a quiet luxury wardrobe",
+      "capsule wardrobe for professional women",
+      "intentional fashion pinterest",
+      "timeless workwear outfits 2026"
+    ],
+    "competitor_boards": []
+  }
+}

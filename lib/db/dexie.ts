@@ -58,7 +58,7 @@ export interface PromptTemplate {
     extraction_regex?: string;
     required: boolean;
   }>;
-  compatible_generators: Array<"single" | "daily" | "guide" | "custom">;
+  compatible_generators: Array<"single" | "daily" | "guide" | "mega" | "custom">;
   qc_rules: Array<{
     rule_type: string;
     target_field: string;

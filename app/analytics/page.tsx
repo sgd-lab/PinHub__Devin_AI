@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { Download, TrendingUp, DollarSign, Target, Sparkles, BarChart3, PieChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAnalytics, type AnalyticsData } from "@/lib/analytics/statsAggregator";
+import { getAllRuns } from "@/lib/db/runRepository";
+import { exportRunsToCSV } from "@/lib/exports/csvExporter";
+import { toast } from "sonner";
 
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsData | null>(null);
@@ -27,8 +30,13 @@ export default function AnalyticsPage() {
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-2xl text-deep-espresso">Artisan Insights</h2>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg text-xs"><Download size={12} className="mr-1" />Export CSV</Button>
-          <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg text-xs"><Download size={12} className="mr-1" />Export PDF</Button>
+          <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg text-xs" onClick={async () => { const runs = await getAllRuns(); exportRunsToCSV(runs); toast.success("CSV exported"); }}><Download size={12} className="mr-1" />Export CSV</Button>
+          <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg text-xs" onClick={() => {
+            const report = `PinHub Analytics Report\n\nTotal Pins: ${d.totalPins}\nQC Score: ${d.avgQCScore.toFixed(1)}/10\nTotal Cost: $${d.totalCost.toFixed(2)}\n\nNiche Distribution:\n${Object.entries(d.byNiche).map(([n, c]) => `  ${n}: ${c}`).join("\n")}\n\nStatus Breakdown:\n${Object.entries(d.byStatus).map(([s, c]) => `  ${s}: ${c}`).join("\n")}`;
+            const blob = new Blob([report], { type: "text/plain" });
+            const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `pinhub-analytics-${new Date().toISOString().split("T")[0]}.txt`; a.click(); URL.revokeObjectURL(url);
+            toast.success("Report exported");
+          }}><Download size={12} className="mr-1" />Export Report</Button>
         </div>
       </div>
 

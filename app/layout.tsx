@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { CostMeter } from "@/components/layout/CostMeter";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -33,20 +34,22 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
       <body className="font-sans bg-warm-ivory text-deep-espresso antialiased">
-        <TooltipProvider>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <TopBar />
-              <main className="flex-1 overflow-y-auto p-6">
-                {children}
-              </main>
+        <ThemeProvider>
+          <TooltipProvider>
+            <div className="flex h-screen overflow-hidden">
+              <Sidebar />
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <TopBar />
+                <main className="flex-1 overflow-y-auto p-6">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
-          <CostMeter />
-          <CommandPalette />
-          <Toaster />
-        </TooltipProvider>
+            <CostMeter />
+            <CommandPalette />
+            <Toaster />
+          </TooltipProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

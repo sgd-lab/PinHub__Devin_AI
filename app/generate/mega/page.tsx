@@ -104,7 +104,7 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
           onStageChange: () => {},
           onToken: () => {},
           onProgress: () => {},
-          onError: (error) => toast.error(`Day ${day + 1}: ${error.message}`),
+          onError: () => {},
           signal: controller.signal,
         });
 
@@ -112,8 +112,9 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
         setDayStatus((prev) => ({ ...prev, [day]: "done" }));
         setSuccessDays((prev) => prev + 1);
         localSuccessCount++;
-      } catch {
+      } catch (err) {
         setDayStatus((prev) => ({ ...prev, [day]: "error" }));
+        if ((err as Error).name !== "AbortError") toast.error(`Day ${day + 1}: ${(err as Error).message}`);
       }
 
       setCompletedDays(day + 1);
@@ -177,7 +178,7 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
             <Button variant="outline" size="sm" onClick={handleCancel} className="border-warm-taupe rounded-lg text-xs">Cancel</Button>
           </div>
           <Progress value={progress} className="h-2" />
-          <p className="text-sm text-charcoal">Day {completedDays}/7 &middot; {completedDays * 3}/21 pins &middot; ${totalCost.toFixed(4)} spent</p>
+          <p className="text-sm text-charcoal">Day {completedDays}/7 &middot; {successDays * 3}/21 pins &middot; ${totalCost.toFixed(4)} spent</p>
 
           <div className="space-y-2">
             {DAYS.map((name, i) => (

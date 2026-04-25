@@ -1,33 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUIStore } from "@/stores/uiStore";
 
 export default function Home() {
   const router = useRouter();
-  const onboardingComplete = useUIStore((s) => s.onboardingComplete);
-  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
-    if (useUIStore.persist.hasHydrated()) {
-      setHasHydrated(true);
-      return;
+    let onboardingComplete = false;
+    try {
+      const stored = localStorage.getItem("pinhub-ui-store");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        onboardingComplete = parsed?.state?.onboardingComplete === true;
+      }
+    } catch {
+      // localStorage unavailable or corrupt — fall through to onboarding
     }
-    const unsub = useUIStore.persist.onFinishHydration(() => {
-      setHasHydrated(true);
-    });
-    return () => unsub();
-  }, []);
 
-  useEffect(() => {
-    if (!hasHydrated) return;
     if (onboardingComplete) {
       router.replace("/dashboard");
     } else {
       router.replace("/onboarding");
     }
-  }, [hasHydrated, onboardingComplete, router]);
+  }, [router]);
 
   return (
     <div className="flex items-center justify-center h-full">

@@ -38,13 +38,14 @@ export default function MegaRunPage() {
     setTotalCost(0);
     setSuccessDays(0);
     setDayStatus({});
-    abortRef.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current = controller;
     let localSuccessCount = 0;
 
     const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
 
     for (let day = 0; day < 7; day++) {
-      if (abortRef.current.signal.aborted) break;
+      if (controller.signal.aborted) break;
 
       setDayStatus((prev) => ({ ...prev, [day]: "running" }));
       const targetDate = format(addDays(weekStart, day), "yyyy-MM-dd");
@@ -104,7 +105,7 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
           onToken: () => {},
           onProgress: () => {},
           onError: (error) => toast.error(`Day ${day + 1}: ${error.message}`),
-          signal: abortRef.current.signal,
+          signal: controller.signal,
         });
 
         setTotalCost((prev) => prev + result.usage.cost);
@@ -119,7 +120,7 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
       setProgress(Math.round(((day + 1) / 7) * 100));
     }
 
-    if (!abortRef.current?.signal.aborted) {
+    if (!controller.signal.aborted) {
       setPhase("complete");
       toast.success(`Mega Run complete! ${localSuccessCount * 3} pins generated.`);
     }

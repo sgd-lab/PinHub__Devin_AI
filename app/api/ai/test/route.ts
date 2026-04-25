@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateBaseUrl } from "@/lib/ai/urlValidator";
 
 export async function POST(req: NextRequest) {
   try {
@@ -6,6 +7,11 @@ export async function POST(req: NextRequest) {
 
     if (!baseUrl || !apiKey) {
       return NextResponse.json({ success: false, error: "Missing baseUrl or apiKey" }, { status: 400 });
+    }
+
+    const urlCheck = validateBaseUrl(baseUrl);
+    if (!urlCheck.valid) {
+      return NextResponse.json({ success: false, error: urlCheck.error }, { status: 403 });
     }
 
     const response = await fetch(`${baseUrl}/models`, {

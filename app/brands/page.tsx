@@ -14,10 +14,9 @@ export default function BrandsPage() {
   const router = useRouter();
 
   const handleNewBrand = () => {
-    const defaults = loadMayaSofiaDefaults();
+    const defaults = JSON.parse(JSON.stringify(loadMayaSofiaDefaults()));
     defaults.id = crypto.randomUUID();
-    defaults.identity.name = "New Brand";
-    defaults.identity.tagline = "Your brand tagline";
+    defaults.identity = { ...defaults.identity, name: "New Brand", tagline: "Your brand tagline" };
     defaults.created_at = new Date().toISOString();
     defaults.updated_at = new Date().toISOString();
     addBrand(defaults);

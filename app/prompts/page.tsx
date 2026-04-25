@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, FileText, Play, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getAllPrompts } from "@/lib/db/promptRepository";
 import type { PromptTemplate } from "@/lib/db/dexie";
 
 export default function PromptsPage() {
+  const router = useRouter();
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
   const [mounted, setMounted] = useState(false);
 
@@ -35,7 +37,7 @@ export default function PromptsPage() {
           <h2 className="font-serif text-2xl text-deep-espresso">Prompt Studio</h2>
           <p className="text-sm text-charcoal mt-1">Manage and customize your prompt templates</p>
         </div>
-        <Button className="bg-deep-espresso text-warm-ivory rounded-lg"><Plus size={14} className="mr-1" />New Prompt</Button>
+        <Button onClick={() => router.push(`/prompts/custom-${Date.now()}`)} className="bg-deep-espresso text-warm-ivory rounded-lg"><Plus size={14} className="mr-1" />New Prompt</Button>
       </div>
 
       <div className="space-y-3">

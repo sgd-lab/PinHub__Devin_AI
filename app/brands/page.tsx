@@ -1,20 +1,35 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBrandStore } from "@/stores/brandStore";
+import { loadMayaSofiaDefaults } from "@/lib/brands/brandDefaults";
 import { exportBrandToJSON } from "@/lib/exports/jsonExporter";
 import { toast } from "sonner";
 
 export default function BrandsPage() {
-  const { brands, activeBrandId, setActiveBrand, cloneBrand } = useBrandStore();
+  const { brands, activeBrandId, setActiveBrand, cloneBrand, addBrand } = useBrandStore();
+  const router = useRouter();
+
+  const handleNewBrand = () => {
+    const defaults = loadMayaSofiaDefaults();
+    defaults.id = crypto.randomUUID();
+    defaults.identity.name = "New Brand";
+    defaults.identity.tagline = "Your brand tagline";
+    defaults.created_at = new Date().toISOString();
+    defaults.updated_at = new Date().toISOString();
+    addBrand(defaults);
+    toast.success("New brand created");
+    router.push(`/brands/${defaults.id}`);
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-2xl text-deep-espresso">Brand Profiles</h2>
-        <Button className="bg-deep-espresso text-warm-ivory rounded-lg">
+        <Button onClick={handleNewBrand} className="bg-deep-espresso text-warm-ivory rounded-lg">
           <Plus size={14} className="mr-1" />New Brand
         </Button>
       </div>

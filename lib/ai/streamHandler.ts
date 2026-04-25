@@ -30,13 +30,12 @@ export async function streamCompletion(options: StreamOptions): Promise<void> {
   } = options;
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch("/api/ai", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        baseUrl,
+        apiKey,
         model,
         messages,
         temperature,
@@ -48,8 +47,8 @@ export async function streamCompletion(options: StreamOptions): Promise<void> {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API Error ${response.status}: ${errorText}`);
+      const errorData = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(errorData.error || `API Error ${response.status}`);
     }
 
     const reader = response.body?.getReader();
@@ -109,7 +108,6 @@ export function estimateCost(
   outputTokens: number,
   model: string
 ): number {
-  // approximate costs per 1M tokens
   const costs: Record<string, { input: number; output: number }> = {
     default: { input: 0.5, output: 1.5 },
     "claude-3.5-sonnet": { input: 3, output: 15 },

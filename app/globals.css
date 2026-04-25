@@ -5,8 +5,39 @@
 :root {
   --background: #F5F0E8;
   --foreground: #3E2723;
+  --card-bg: rgba(255, 255, 255, 0.6);
+  --card-border: rgba(201, 184, 168, 0.3);
+  --input-bg: #F5F0E8;
+  --input-border: rgba(201, 184, 168, 0.4);
+  --hover-bg: #EDE6DB;
+  --sidebar-bg: #F5F0E8;
+  --sidebar-active: #3E2723;
+  --sidebar-active-text: #F5F0E8;
+  --topbar-bg: rgba(245, 240, 232, 0.6);
+  --scrollbar-track: #F5F0E8;
+  --scrollbar-thumb: #C9B8A8;
+  --scrollbar-hover: #C9A99A;
+  --muted-text: #3D3D3D;
   --font-playfair: 'Playfair Display', serif;
   --font-inter: 'Inter', sans-serif;
+}
+
+.dark-atelier {
+  --background: #1a1410;
+  --foreground: #F5F0E8;
+  --card-bg: rgba(42, 35, 28, 0.8);
+  --card-border: rgba(100, 85, 70, 0.4);
+  --input-bg: #2a231c;
+  --input-border: rgba(100, 85, 70, 0.5);
+  --hover-bg: #342b22;
+  --sidebar-bg: #1a1410;
+  --sidebar-active: #C9A99A;
+  --sidebar-active-text: #1a1410;
+  --topbar-bg: rgba(26, 20, 16, 0.8);
+  --scrollbar-track: #1a1410;
+  --scrollbar-thumb: #4a3d32;
+  --scrollbar-hover: #5a4d42;
+  --muted-text: #b0a89e;
 }
 
 body {
@@ -15,19 +46,42 @@ body {
   font-family: var(--font-inter);
 }
 
+/* Dark mode overrides */
+.dark-atelier {
+  color-scheme: dark;
+}
+.dark-atelier .bg-warm-ivory { background-color: var(--input-bg); }
+.dark-atelier .bg-white\/60 { background-color: var(--card-bg); }
+.dark-atelier .border-warm-taupe\/30 { border-color: var(--card-border); }
+.dark-atelier .border-warm-taupe\/20 { border-color: var(--card-border); }
+.dark-atelier .border-warm-taupe\/40 { border-color: var(--input-border); }
+.dark-atelier .text-deep-espresso { color: var(--foreground); }
+.dark-atelier .text-charcoal { color: var(--muted-text); }
+.dark-atelier .text-warm-taupe { color: #8a7d72; }
+.dark-atelier .bg-warm-ivory\/60 { background-color: var(--topbar-bg); }
+.dark-atelier .bg-warm-ivory\/30 { background-color: rgba(42, 35, 28, 0.3); }
+.dark-atelier .hover\:bg-cream-hover:hover { background-color: var(--hover-bg); }
+.dark-atelier input,
+.dark-atelier select,
+.dark-atelier textarea {
+  background-color: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--foreground) !important;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F5F0E8;
+  background: var(--scrollbar-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #C9B8A8;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #C9A99A;
+  background: var(--scrollbar-hover);
 }
 
 /* Selection */

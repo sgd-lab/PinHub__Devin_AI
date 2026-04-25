@@ -27,18 +27,12 @@ export async function testProviderConnection(
   baseUrl: string
 ): Promise<{ success: boolean; error?: string; models?: string[] }> {
   try {
-    const response = await fetch(`${baseUrl}/models`, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+    const response = await fetch("/api/ai/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ baseUrl, apiKey }),
     });
-    if (!response.ok) {
-      return { success: false, error: `HTTP ${response.status}: ${response.statusText}` };
-    }
-    const data = await response.json();
-    const models = data.data?.map((m: { id: string }) => m.id) || [];
-    return { success: true, models };
+    return await response.json();
   } catch (error) {
     return { success: false, error: String(error) };
   }
@@ -49,15 +43,13 @@ export async function fetchModels(
   apiKey: string
 ): Promise<string[]> {
   try {
-    const response = await fetch(`${baseUrl}/models`, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+    const response = await fetch("/api/ai/test", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ baseUrl, apiKey }),
     });
-    if (!response.ok) return [];
     const data = await response.json();
-    return data.data?.map((m: { id: string }) => m.id) || [];
+    return data.models || [];
   } catch {
     return [];
   }

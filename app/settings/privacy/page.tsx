@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { setPassphrase, hasPassphrase } from "@/lib/encryption/keyStore";
+import { db } from "@/lib/db/dexie";
 import { toast } from "sonner";
 
 export default function PrivacyPage() {
@@ -74,12 +75,18 @@ export default function PrivacyPage() {
         <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-4">
           <h4 className="text-sm font-medium text-deep-espresso mb-2 flex items-center gap-2"><Download size={14} />Backup & Restore</h4>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg text-xs" onClick={() => {
-              const backup: Record<string, string | null> = {};
+            <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg text-xs" onClick={async () => {
+              const ls: Record<string, string | null> = {};
               for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key) backup[key] = localStorage.getItem(key);
+                if (key) ls[key] = localStorage.getItem(key);
               }
+              const idb: Record<string, unknown[]> = {};
+              const tableNames = ["runs", "brands", "brandVersions", "prompts", "promptVersions", "settings", "costLog", "researchCache", "downloadHistory"] as const;
+              for (const t of tableNames) {
+                idb[t] = await db[t].toArray();
+              }
+              const backup = { localStorage: ls, indexedDB: idb };
               const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a"); a.href = url; a.download = `pinhub-backup-${new Date().toISOString().split("T")[0]}.json`; a.click();
@@ -94,7 +101,16 @@ export default function PrivacyPage() {
                 const text = await file.text();
                 try {
                   const data = JSON.parse(text);
-                  Object.entries(data).forEach(([k, v]) => { if (v !== null) localStorage.setItem(k, v as string); });
+                  const lsData = data.localStorage || data;
+                  Object.entries(lsData).forEach(([k, v]) => { if (v !== null && typeof v === "string") localStorage.setItem(k, v); });
+                  if (data.indexedDB) {
+                    const tableNames = ["runs", "brands", "brandVersions", "prompts", "promptVersions", "settings", "costLog", "researchCache", "downloadHistory"] as const;
+                    for (const t of tableNames) {
+                      if (Array.isArray(data.indexedDB[t]) && data.indexedDB[t].length > 0) {
+                        await db[t].bulkPut(data.indexedDB[t]);
+                      }
+                    }
+                  }
                   toast.success("Backup restored. Refreshing...");
                   setTimeout(() => window.location.reload(), 1000);
                 } catch { toast.error("Invalid backup file"); }

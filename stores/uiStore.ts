@@ -79,6 +79,12 @@ export const useUIStore = create<UIState>()(
           },
         })),
     }),
-    { name: "pinhub-ui-store" }
+    {
+      name: "pinhub-ui-store",
+      partialize: (state) => {
+        const { commandPaletteOpen, ...rest } = state;
+        return rest;
+      },
+    }
   )
 );

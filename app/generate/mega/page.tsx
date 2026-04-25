@@ -23,6 +23,7 @@ export default function MegaRunPage() {
   const [completedDays, setCompletedDays] = useState(0);
   const [dayStatus, setDayStatus] = useState<Record<number, "pending" | "running" | "done" | "error">>({});
   const [totalCost, setTotalCost] = useState(0);
+  const [successDays, setSuccessDays] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   const handleStart = async () => {
@@ -35,6 +36,8 @@ export default function MegaRunPage() {
     setCompletedDays(0);
     setProgress(0);
     setTotalCost(0);
+    setSuccessDays(0);
+    setDayStatus({});
     abortRef.current = new AbortController();
 
     const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -105,6 +108,7 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
 
         setTotalCost((prev) => prev + result.usage.cost);
         setDayStatus((prev) => ({ ...prev, [day]: "done" }));
+        setSuccessDays((prev) => prev + 1);
       } catch {
         setDayStatus((prev) => ({ ...prev, [day]: "error" }));
       }
@@ -114,7 +118,7 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
     }
 
     setPhase("complete");
-    toast.success("Mega Run complete! 21 pins generated.");
+    toast.success(`Mega Run complete! ${successDays * 3} pins generated.`);
   };
 
   const handleCancel = () => {
@@ -199,7 +203,7 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
         <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-8 text-center space-y-4">
           <CheckCircle2 size={32} className="text-soft-sage mx-auto" />
           <h3 className="font-serif text-xl text-deep-espresso">Mega Run Complete!</h3>
-          <p className="text-charcoal">{completedDays * 3} pins generated and added to your library.</p>
+          <p className="text-charcoal">{successDays * 3} pins generated and added to your library.</p>
           <p className="text-xs text-warm-taupe">Total cost: ${totalCost.toFixed(4)}</p>
           <Button onClick={() => setPhase("confirm")} variant="outline" className="border-warm-taupe rounded-lg">Run Another Week</Button>
         </div>

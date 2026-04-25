@@ -13,6 +13,9 @@ const ALLOWED_HOSTS = [
   "api.deepseek.com",
 ];
 
+// Ollama runs locally — allow localhost HTTP for local model serving
+const OLLAMA_PORTS = [11434];
+
 export function validateBaseUrl(baseUrl: string): { valid: boolean; error?: string } {
   let parsed: URL;
   try {
@@ -21,13 +24,22 @@ export function validateBaseUrl(baseUrl: string): { valid: boolean; error?: stri
     return { valid: false, error: "Invalid URL format" };
   }
 
-  if (parsed.protocol !== "https:") {
-    return { valid: false, error: "Only HTTPS URLs are allowed" };
+  const hostname = parsed.hostname.toLowerCase();
+  const port = parsed.port ? parseInt(parsed.port) : (parsed.protocol === "https:" ? 443 : 80);
+
+  // Allow localhost ollama (HTTP on known ollama port)
+  if (
+    (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") &&
+    OLLAMA_PORTS.includes(port)
+  ) {
+    return { valid: true };
   }
 
-  const hostname = parsed.hostname.toLowerCase();
+  if (parsed.protocol !== "https:") {
+    return { valid: false, error: "Only HTTPS URLs are allowed (except localhost Ollama)" };
+  }
 
-  // Block private/internal IPs
+  // Block private/internal IPs (excluding already-handled localhost ollama)
   if (
     hostname === "localhost" ||
     hostname.startsWith("127.") ||

@@ -94,7 +94,6 @@ export async function streamCompletion(options: StreamOptions): Promise<void> {
     onUsage?.({ input_tokens: inputTokens, output_tokens: outputTokens });
     onComplete(fullText);
   } catch (error) {
-    if ((error as Error).name === "AbortError") return;
     onError(error as Error);
   }
 }

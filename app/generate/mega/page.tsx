@@ -119,8 +119,10 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
       setProgress(Math.round(((day + 1) / 7) * 100));
     }
 
-    setPhase("complete");
-    toast.success(`Mega Run complete! ${localSuccessCount * 3} pins generated.`);
+    if (!abortRef.current?.signal.aborted) {
+      setPhase("complete");
+      toast.success(`Mega Run complete! ${localSuccessCount * 3} pins generated.`);
+    }
   };
 
   const handleCancel = () => {

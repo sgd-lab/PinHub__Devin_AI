@@ -184,7 +184,7 @@ export async function executeGeneration(
     metadata: {},
   };
 
-  await supabase.from("pins").insert({
+  const { error: pinError } = await supabase.from("pins").insert({
     id: runRecord.id,
     created_at: runRecord.created_at,
     updated_at: runRecord.updated_at,
@@ -213,9 +213,10 @@ export async function executeGeneration(
     run_type: runRecord.run_type,
     metadata: {},
   });
+  if (pinError) throw new Error("Failed to save pin: " + pinError.message);
 
   // Log cost
-  await supabase.from("cost_log").insert({
+  const { error: costError } = await supabase.from("cost_log").insert({
     id: crypto.randomUUID(),
     date: new Date().toISOString().split("T")[0],
     provider: provider.name,
@@ -225,6 +226,9 @@ export async function executeGeneration(
     cost,
     run_id: runRecord.id,
   });
+  if (costError) {
+    if (typeof window !== "undefined") console.warn("Failed to log cost:", costError.message);
+  }
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("pinhub:cost-update"));

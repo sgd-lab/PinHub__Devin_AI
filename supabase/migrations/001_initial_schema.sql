@@ -54,10 +54,15 @@ CREATE TABLE IF NOT EXISTS brands (
   tagline TEXT DEFAULT '',
   operator_name TEXT DEFAULT '',
   primary_market TEXT DEFAULT '',
+  schema_version TEXT DEFAULT 'v2026.1',
   identity JSONB DEFAULT '{}',
   visual_system JSONB DEFAULT '{}',
   voice JSONB DEFAULT '{}',
+  model_persona JSONB DEFAULT '{}',
   niches JSONB DEFAULT '[]',
+  pinterest JSONB DEFAULT '{}',
+  file_naming JSONB DEFAULT '{}',
+  seo JSONB DEFAULT '{}',
   metadata JSONB DEFAULT '{}'
 );
 

@@ -171,7 +171,7 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
             output_tokens: usage.output_tokens,
             cost,
             run_id: `research-${crypto.randomUUID()}`,
-          });
+          }).then();
         },
         signal: abortRef.current.signal,
       });

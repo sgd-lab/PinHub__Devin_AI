@@ -74,19 +74,20 @@ export async function restoreBrandVersion(versionId: string): Promise<BrandProfi
 }
 
 function rowToBrand(row: Record<string, unknown>): BrandProfile {
-  if (row.identity && typeof row.identity === "object" && "name" in (row.identity as Record<string, unknown>)) {
-    return row as unknown as BrandProfile;
-  }
   return {
-    ...row,
-    identity: {
-      name: row.name as string,
-      tagline: row.tagline as string,
-      operator_name: row.operator_name as string,
-      primary_market: row.primary_market as string,
-      ...(row.identity as Record<string, unknown> || {}),
-    },
-  } as unknown as BrandProfile;
+    id: row.id as string,
+    schema_version: (row.schema_version as string) || "v2026.1",
+    created_at: row.created_at as string,
+    updated_at: row.updated_at as string,
+    identity: row.identity as BrandProfile["identity"],
+    visual_system: row.visual_system as BrandProfile["visual_system"],
+    voice: row.voice as BrandProfile["voice"],
+    model_persona: row.model_persona as BrandProfile["model_persona"],
+    niches: row.niches as BrandProfile["niches"],
+    pinterest: row.pinterest as BrandProfile["pinterest"],
+    file_naming: row.file_naming as BrandProfile["file_naming"],
+    seo: row.seo as BrandProfile["seo"],
+  } as BrandProfile;
 }
 
 function brandToRow(brand: BrandProfile): Record<string, unknown> {
@@ -98,10 +99,15 @@ function brandToRow(brand: BrandProfile): Record<string, unknown> {
     tagline: brand.identity?.tagline || "",
     operator_name: brand.identity?.operator_name || "",
     primary_market: brand.identity?.primary_market || "",
+    schema_version: brand.schema_version || "v2026.1",
     identity: brand.identity,
     visual_system: brand.visual_system,
     voice: brand.voice,
+    model_persona: brand.model_persona,
     niches: brand.niches,
+    pinterest: brand.pinterest,
+    file_naming: brand.file_naming,
+    seo: brand.seo,
     metadata: {},
   };
 }

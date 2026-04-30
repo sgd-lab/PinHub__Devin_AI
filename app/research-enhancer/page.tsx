@@ -9,10 +9,11 @@ import { useBrandStore } from "@/stores/brandStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { streamCompletion, estimateCost } from "@/lib/ai/streamHandler";
 import { retrieveApiKey } from "@/lib/encryption/keyStore";
-import { db } from "@/lib/db/dexie";
+import { supabase } from "@/lib/db/supabase";
 import { toast } from "sonner";
 import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
 import { AIErrorCard } from "@/components/ai/AIErrorCard";
+import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
 
 interface ResearchResult {
   trendingSubtopics: string[];
@@ -77,6 +78,7 @@ const SECTION_CONFIG = [
 export default function ResearchEnhancerPage() {
   const { activeBrand } = useBrandStore();
   const { providers, defaultProvider } = useSettingsStore();
+  const { hasKey, checked } = useApiKeyGate();
   const [topic, setTopic] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [rawOutput, setRawOutput] = useState("");
@@ -84,6 +86,8 @@ export default function ResearchEnhancerPage() {
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  if (!checked || !hasKey) return null;
 
   const handleResearch = async () => {
     if (!topic.trim()) {
@@ -158,7 +162,7 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
         },
         onUsage: (usage) => {
           const cost = estimateCost(usage.input_tokens, usage.output_tokens, provider.default_model);
-          db.costLog.add({
+          supabase.from("cost_log").insert({
             id: crypto.randomUUID(),
             date: new Date().toISOString().split("T")[0],
             provider: selectedProvider,

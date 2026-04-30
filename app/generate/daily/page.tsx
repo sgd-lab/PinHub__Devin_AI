@@ -15,17 +15,21 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
 import { AIErrorCard } from "@/components/ai/AIErrorCard";
+import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
 
 export default function DailyProducerPage() {
   const { activeBrand } = useBrandStore();
   const { providers, defaultProvider } = useSettingsStore();
   const { temperature, maxTokens, targetDate, holdForReview, setTemperature, setCurrentRun, resetRun, setHoldForReview, currentRun } = useGeneratorStore();
+  const { hasKey, checked } = useApiKeyGate();
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
   const [countries, setCountries] = useState(["US", "CA", "UK"]);
   const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  if (!checked || !hasKey) return null;
 
   const today = new Date();
   const dayOfWeek = format(today, "EEEE");

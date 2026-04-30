@@ -12,6 +12,7 @@ import { retrieveApiKey } from "@/lib/encryption/keyStore";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek } from "date-fns";
 import { parseAIError } from "@/lib/ai/aiErrorHandler";
+import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -19,6 +20,7 @@ export default function MegaRunPage() {
   const { activeBrand } = useBrandStore();
   const { providers, defaultProvider } = useSettingsStore();
   const { temperature, maxTokens, holdForReview, resetRun } = useGeneratorStore();
+  const { hasKey, checked } = useApiKeyGate();
   const [phase, setPhase] = useState<"confirm" | "running" | "complete">("confirm");
   const [progress, setProgress] = useState(0);
   const [completedDays, setCompletedDays] = useState(0);
@@ -26,6 +28,8 @@ export default function MegaRunPage() {
   const [totalCost, setTotalCost] = useState(0);
   const [successDays, setSuccessDays] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+
+  if (!checked || !hasKey) return null;
 
   const handleStart = async () => {
     if (!activeBrand) { toast.error("No brand loaded"); return; }

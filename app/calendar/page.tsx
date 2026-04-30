@@ -15,12 +15,11 @@ import {
   KeyboardSensor,
   useSensor,
   useSensors,
+  useDraggable,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { useSortable } from "@dnd-kit/sortable";
-import { useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 
 const NICHE_COLORS: Record<string, string> = {
   "Quiet Luxury Workwear": "#3E2723",
@@ -29,14 +28,13 @@ const NICHE_COLORS: Record<string, string> = {
 };
 
 function DraggablePin({ pin }: { pin: RunRecord }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: pin.id,
     data: { type: "pin", pin },
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.4 : 1,
   };
 

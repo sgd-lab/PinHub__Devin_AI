@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { setPassphrase, hasPassphrase } from "@/lib/encryption/keyStore";
-import { db } from "@/lib/db/dexie";
+import { supabase } from "@/lib/db/supabase";
 import { toast } from "sonner";
 
 export default function PrivacyPage() {
@@ -32,10 +32,13 @@ export default function PrivacyPage() {
     toast.success("Passphrase set — your API keys are now encrypted");
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (!confirm("This will delete ALL your data including API keys, brand profiles, and generated content. Are you sure?")) return;
     localStorage.clear();
-    indexedDB.deleteDatabase("PinHubDB");
+    const tables = ["pins", "brands", "brand_versions", "prompts", "prompt_versions", "cost_log", "research_cache", "export_history", "app_settings"];
+    for (const t of tables) {
+      await supabase.from(t).delete().gte("id", "00000000-0000-0000-0000-000000000000");
+    }
     toast.success("All data cleared. Refreshing...");
     setTimeout(() => window.location.reload(), 1000);
   };
@@ -44,7 +47,7 @@ export default function PrivacyPage() {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-serif text-deep-espresso mb-1">Privacy & Security</h3>
-        <p className="text-xs text-charcoal">Your data never leaves your browser. API keys are AES-256 encrypted in localStorage.</p>
+        <p className="text-xs text-charcoal">Your data is stored in Supabase. API keys are AES-256 encrypted in localStorage.</p>
       </div>
 
       <div className="space-y-4">
@@ -81,12 +84,13 @@ export default function PrivacyPage() {
                 const key = localStorage.key(i);
                 if (key) ls[key] = localStorage.getItem(key);
               }
-              const idb: Record<string, unknown[]> = {};
-              const tableNames = ["runs", "brands", "brandVersions", "prompts", "promptVersions", "settings", "costLog", "researchCache", "downloadHistory"] as const;
-              for (const t of tableNames) {
-                idb[t] = await db[t].toArray();
+              const supabaseData: Record<string, unknown[]> = {};
+              const tables = ["pins", "brands", "brand_versions", "prompts", "prompt_versions", "cost_log", "research_cache", "export_history", "app_settings"];
+              for (const t of tables) {
+                const { data } = await supabase.from(t).select("*");
+                supabaseData[t] = data || [];
               }
-              const backup = { localStorage: ls, indexedDB: idb };
+              const backup = { localStorage: ls, supabase: supabaseData };
               const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a"); a.href = url; a.download = `pinhub-backup-${new Date().toISOString().split("T")[0]}.json`; a.click();
@@ -103,11 +107,24 @@ export default function PrivacyPage() {
                   const data = JSON.parse(text);
                   const lsData = data.localStorage || data;
                   Object.entries(lsData).forEach(([k, v]) => { if (v !== null && typeof v === "string") localStorage.setItem(k, v); });
+                  if (data.supabase) {
+                    const tables = Object.keys(data.supabase);
+                    for (const t of tables) {
+                      if (Array.isArray(data.supabase[t]) && data.supabase[t].length > 0) {
+                        await supabase.from(t).upsert(data.supabase[t]);
+                      }
+                    }
+                  }
                   if (data.indexedDB) {
-                    const tableNames = ["runs", "brands", "brandVersions", "prompts", "promptVersions", "settings", "costLog", "researchCache", "downloadHistory"] as const;
-                    for (const t of tableNames) {
-                      if (Array.isArray(data.indexedDB[t]) && data.indexedDB[t].length > 0) {
-                        await (db[t] as { bulkPut: (items: unknown[]) => Promise<unknown> }).bulkPut(data.indexedDB[t]);
+                    const tableMap: Record<string, string> = {
+                      runs: "pins", brands: "brands", brandVersions: "brand_versions",
+                      prompts: "prompts", promptVersions: "prompt_versions",
+                      costLog: "cost_log", researchCache: "research_cache",
+                      downloadHistory: "export_history",
+                    };
+                    for (const [oldName, newName] of Object.entries(tableMap)) {
+                      if (Array.isArray(data.indexedDB[oldName]) && data.indexedDB[oldName].length > 0) {
+                        await supabase.from(newName).upsert(data.indexedDB[oldName]);
                       }
                     }
                   }
@@ -122,7 +139,7 @@ export default function PrivacyPage() {
 
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <h4 className="text-sm font-medium text-red-800 mb-2 flex items-center gap-2"><AlertTriangle size={14} />Danger Zone</h4>
-          <p className="text-xs text-red-700 mb-3">Permanently delete all data from this browser. This cannot be undone.</p>
+          <p className="text-xs text-red-700 mb-3">Permanently delete all data. This cannot be undone.</p>
           <Button onClick={handleClearAll} variant="outline" className="border-red-300 text-red-600 rounded-lg text-xs"><Trash2 size={12} className="mr-1" />Clear All Data</Button>
         </div>
       </div>

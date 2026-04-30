@@ -86,7 +86,7 @@ export const PROVIDER_DEFAULTS: Record<string, Partial<ProviderConfig>> = {
     max_tokens_default: 2000,
     temperature_default: 0.7,
     top_p_default: 0.9,
-    enabled: false,
+    enabled: true,
   },
   groq: {
     name: "groq",
@@ -126,7 +126,7 @@ export const useSettingsStore = create<SettingsState>()(
           { ...val, api_key_ref: "" } as ProviderConfig,
         ])
       ),
-      defaultProvider: "nvidia",
+      defaultProvider: "gemini",
       defaultBrandId: "",
       defaultPromptPerGenerator: {},
       defaultExportFormat: "pdf",

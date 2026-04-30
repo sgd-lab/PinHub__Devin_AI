@@ -73,7 +73,7 @@ export const PROVIDER_DEFAULTS: Record<string, Partial<ProviderConfig>> = {
   openrouter: {
     name: "openrouter",
     base_url: "https://openrouter.ai/api/v1",
-    default_model: "anthropic/claude-3.5-sonnet",
+    default_model: "meta-llama/llama-3.1-8b-instruct:free",
     max_tokens_default: 2000,
     temperature_default: 0.7,
     top_p_default: 0.9,
@@ -82,7 +82,7 @@ export const PROVIDER_DEFAULTS: Record<string, Partial<ProviderConfig>> = {
   gemini: {
     name: "gemini",
     base_url: "https://generativelanguage.googleapis.com/v1beta/openai",
-    default_model: "gemini-pro",
+    default_model: "gemini-2.0-flash",
     max_tokens_default: 2000,
     temperature_default: 0.7,
     top_p_default: 0.9,

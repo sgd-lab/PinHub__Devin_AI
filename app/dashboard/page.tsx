@@ -46,16 +46,17 @@ export default function DashboardPage() {
 
   const hasNvidia = hasApiKey("nvidia");
   const hasOpenRouter = hasApiKey("openrouter");
+  const hasGemini = hasApiKey("gemini");
   const hasNotion = notion.enabled;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
       {/* Morning Briefing */}
-      <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-6">
+      <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-4 sm:p-6">
         <div className="text-xs font-medium text-charcoal uppercase tracking-wider mb-1">
           Today &middot; {dayOfWeek} &middot; {dateStr}
         </div>
-        <h1 className="font-serif text-3xl text-deep-espresso italic mb-2">
+        <h1 className="font-serif text-2xl sm:text-3xl text-deep-espresso italic mb-2">
           Good morning, {operatorName}.
         </h1>
         <p className="text-charcoal leading-relaxed">
@@ -72,7 +73,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Quick Launch */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
         <Link href="/generate/daily" className="bg-deep-espresso text-warm-ivory rounded-lg p-5 hover:bg-deep-espresso/90 transition-colors group">
           <div className="flex items-center gap-2 mb-2">
             <Zap size={20} strokeWidth={1.5} />
@@ -113,7 +114,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Status Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4">
         <div className="bg-warm-ivory border border-warm-taupe/30 rounded-lg p-4">
           <div className="text-[10px] font-medium text-charcoal uppercase tracking-wider mb-1">Today&apos;s Niche</div>
           <div className="text-sm font-medium text-deep-espresso">{todayNiche?.name || "None assigned"}</div>
@@ -149,6 +150,10 @@ export default function DashboardPage() {
                 <span className={`w-2 h-2 rounded-full ${hasOpenRouter ? "bg-soft-sage" : "bg-warm-taupe"}`} />
                 OpenRouter
               </span>
+              <span className={`text-xs flex items-center gap-1 ${hasGemini ? "text-soft-sage" : "text-warm-taupe"}`}>
+                <span className={`w-2 h-2 rounded-full ${hasGemini ? "bg-soft-sage" : "bg-warm-taupe"}`} />
+                Gemini
+              </span>
             </div>
           </div>
         </div>
@@ -170,38 +175,40 @@ export default function DashboardPage() {
           <div className="px-5 py-3 border-b border-warm-taupe/20">
             <h3 className="text-sm font-medium text-deep-espresso">Recent Activity</h3>
           </div>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-xs text-charcoal uppercase tracking-wider">
-                <th className="px-5 py-2 text-left font-medium">Time</th>
-                <th className="px-5 py-2 text-left font-medium">Type</th>
-                <th className="px-5 py-2 text-left font-medium">Niche</th>
-                <th className="px-5 py-2 text-left font-medium">Model</th>
-                <th className="px-5 py-2 text-left font-medium">Status</th>
-                <th className="px-5 py-2 text-right font-medium">Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentRuns.map((run) => (
-                <tr key={run.id} className="border-t border-warm-taupe/10 hover:bg-cream-hover/50 cursor-pointer">
-                  <td className="px-5 py-2.5 text-charcoal">{format(new Date(run.created_at), "h:mm a")}</td>
-                  <td className="px-5 py-2.5 capitalize">{run.run_type}</td>
-                  <td className="px-5 py-2.5">{run.niche}</td>
-                  <td className="px-5 py-2.5 text-xs text-charcoal truncate max-w-[120px]">{run.model}</td>
-                  <td className="px-5 py-2.5">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      run.status === "Posted" ? "bg-soft-sage/20 text-soft-sage" :
-                      run.status === "Approved" ? "bg-muted-gold/20 text-muted-gold" :
-                      "bg-warm-taupe/20 text-charcoal"
-                    }`}>
-                      {run.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-2.5 text-right text-charcoal">${run.cost_estimate.toFixed(4)}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[500px]">
+              <thead>
+                <tr className="text-xs text-charcoal uppercase tracking-wider">
+                  <th className="px-3 sm:px-5 py-2 text-left font-medium">Time</th>
+                  <th className="px-3 sm:px-5 py-2 text-left font-medium">Type</th>
+                  <th className="px-3 sm:px-5 py-2 text-left font-medium hidden sm:table-cell">Niche</th>
+                  <th className="px-3 sm:px-5 py-2 text-left font-medium hidden md:table-cell">Model</th>
+                  <th className="px-3 sm:px-5 py-2 text-left font-medium">Status</th>
+                  <th className="px-3 sm:px-5 py-2 text-right font-medium">Cost</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {recentRuns.map((run) => (
+                  <tr key={run.id} className="border-t border-warm-taupe/10 hover:bg-cream-hover/50 cursor-pointer">
+                    <td className="px-3 sm:px-5 py-2.5 text-charcoal">{format(new Date(run.created_at), "h:mm a")}</td>
+                    <td className="px-3 sm:px-5 py-2.5 capitalize">{run.run_type}</td>
+                    <td className="px-3 sm:px-5 py-2.5 hidden sm:table-cell">{run.niche}</td>
+                    <td className="px-3 sm:px-5 py-2.5 text-xs text-charcoal truncate max-w-[120px] hidden md:table-cell">{run.model}</td>
+                    <td className="px-3 sm:px-5 py-2.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        run.status === "Posted" ? "bg-soft-sage/20 text-soft-sage" :
+                        run.status === "Approved" ? "bg-muted-gold/20 text-muted-gold" :
+                        "bg-warm-taupe/20 text-charcoal"
+                      }`}>
+                        {run.status}
+                      </span>
+                    </td>
+                    <td className="px-3 sm:px-5 py-2.5 text-right text-charcoal">${run.cost_estimate.toFixed(4)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

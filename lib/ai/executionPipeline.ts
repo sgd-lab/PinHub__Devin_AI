@@ -2,9 +2,9 @@ import { streamCompletion, estimateTokens, estimateCost } from "./streamHandler"
 import { resolveVariables } from "@/lib/prompts/variableResolver";
 import { parseOutput } from "@/lib/prompts/outputParser";
 import { runQCRules } from "@/lib/qc/ruleRunner";
-import { db, type RunRecord } from "@/lib/db/dexie";
+import { supabase } from "@/lib/db/supabase";
+import type { RunRecord, PromptTemplate } from "@/lib/db/dexie";
 import type { BrandProfile } from "@/lib/brands/brandSchema";
-import type { PromptTemplate } from "@/lib/db/dexie";
 
 export type PipelineStage =
   | "assemble"
@@ -184,10 +184,39 @@ export async function executeGeneration(
     metadata: {},
   };
 
-  await db.runs.add(runRecord);
+  const { error: pinError } = await supabase.from("pins").insert({
+    id: runRecord.id,
+    created_at: runRecord.created_at,
+    updated_at: runRecord.updated_at,
+    brand_snapshot: runRecord.brand_snapshot,
+    brand_id: (brandSnapshot as Record<string, unknown>).id || null,
+    prompt_template: runRecord.prompt_template,
+    runtime_inputs: runRecord.runtime_inputs,
+    raw_response: runRecord.raw_response,
+    title: (parsedFields.title as string) || "",
+    description: (parsedFields.description as string) || "",
+    hashtags: (parsedFields.hashtags as string[]) || [],
+    image_prompt_a: (parsedFields.prompt_a as string) || "",
+    image_prompt_b: (parsedFields.prompt_b as string) || "",
+    parsed_fields: parsedFields,
+    qc_score: qcResults.score,
+    qc_results: qcResults,
+    provider: provider.name,
+    model: provider.model,
+    input_tokens: usage.input_tokens,
+    output_tokens: usage.output_tokens,
+    cost_estimate: cost,
+    status: runRecord.status,
+    board: runRecord.board || "",
+    niche: runRecord.niche,
+    target_date: runRecord.target_date || null,
+    run_type: runRecord.run_type,
+    metadata: {},
+  });
+  if (pinError) throw new Error("Failed to save pin: " + pinError.message);
 
   // Log cost
-  await db.costLog.add({
+  const { error: costError } = await supabase.from("cost_log").insert({
     id: crypto.randomUUID(),
     date: new Date().toISOString().split("T")[0],
     provider: provider.name,
@@ -197,6 +226,13 @@ export async function executeGeneration(
     cost,
     run_id: runRecord.id,
   });
+  if (costError) {
+    if (typeof window !== "undefined") console.warn("Failed to log cost:", costError.message);
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("pinhub:cost-update"));
+  }
 
   // Stage 9: Sync (placeholder)
   onStageChange("sync");

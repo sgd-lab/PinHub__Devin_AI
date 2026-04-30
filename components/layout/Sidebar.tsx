@@ -10,7 +10,7 @@ import {
   Palette,
   FileText,
   BarChart3,
-  Zap,
+  Search,
   Download,
   Settings,
   ChevronLeft,
@@ -27,7 +27,7 @@ const navItems = [
   { href: "/brands", label: "Brand Profiles", icon: Palette, shortcut: "5" },
   { href: "/prompts", label: "Prompt Studio", icon: FileText, shortcut: "6" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, shortcut: "7" },
-  { href: "/automation", label: "Automation Hub", icon: Zap, shortcut: "8" },
+  { href: "/research-enhancer", label: "Research", icon: Search, shortcut: "8" },
   { href: "/export", label: "Export Center", icon: Download, shortcut: "9" },
   { href: "/settings", label: "Settings", icon: Settings, shortcut: "0" },
 ];
@@ -79,14 +79,7 @@ export function Sidebar() {
             >
               <Icon size={20} strokeWidth={1.5} />
               {!sidebarCollapsed && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  {item.href === "/automation" && (
-                    <span className="text-[10px] bg-muted-gold/20 text-muted-gold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                      Soon
-                    </span>
-                  )}
-                </>
+                <span className="flex-1">{item.label}</span>
               )}
             </Link>
           );

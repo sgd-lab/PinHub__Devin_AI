@@ -11,11 +11,15 @@ import { useGeneratorStore } from "@/stores/generatorStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
 import { retrieveApiKey } from "@/lib/encryption/keyStore";
 import { toast } from "sonner";
+import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
+import { AIErrorCard } from "@/components/ai/AIErrorCard";
+import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
 
 export default function GuideGeneratorPage() {
   const { activeBrand } = useBrandStore();
   const { providers, defaultProvider } = useSettingsStore();
   const { temperature, maxTokens, holdForReview, setCurrentRun, resetRun } = useGeneratorStore();
+  const { hasKey, checked } = useApiKeyGate();
   const [guideTitle, setGuideTitle] = useState("");
   const [weekLabel, setWeekLabel] = useState("");
   const [monetization, setMonetization] = useState("Affiliate");
@@ -24,7 +28,10 @@ export default function GuideGeneratorPage() {
   const [streaming, setStreaming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
+  const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  if (!checked || !hasKey) return null;
 
   const handleGenerate = async () => {
     if (!activeBrand) { toast.error("No brand loaded"); return; }
@@ -34,6 +41,7 @@ export default function GuideGeneratorPage() {
 
     resetRun();
     setOutput("");
+    setAiError(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -97,7 +105,13 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
       });
       setCurrentRun({ status: "complete", qcResults: result.qcResults, costEstimate: result.usage.cost });
       toast.success("Guide generated!");
-    } catch (err) { toast.error(String(err)); } finally { setStreaming(false); }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        const errorInfo = parseAIError(err, selectedProvider);
+        setAiError(errorInfo);
+        toast.error(errorInfo.message);
+      }
+    } finally { setStreaming(false); }
   };
 
   const handleCopy = () => {
@@ -176,6 +190,11 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
         <div className="space-y-4">
           <h2 className="font-serif text-2xl text-deep-espresso">Guide Preview</h2>
+          {aiError && (
+            <div className="mb-4">
+              <AIErrorCard error={aiError} onRetry={handleGenerate} onDismiss={() => setAiError(null)} />
+            </div>
+          )}
           <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5 min-h-[400px]">
             {!output ? (
               <div className="flex flex-col items-center justify-center h-[350px] text-center text-charcoal">

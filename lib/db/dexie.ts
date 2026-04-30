@@ -1,4 +1,5 @@
-import Dexie, { type Table } from "dexie";
+// Type definitions for PinHub data models
+// Previously backed by Dexie/IndexedDB, now backed by Supabase
 
 export interface RunRecord {
   id: string;
@@ -115,32 +116,3 @@ export interface DownloadHistoryEntry {
   created_at: string;
   blob_url?: string;
 }
-
-export class PinHubDB extends Dexie {
-  runs!: Table<RunRecord, string>;
-  brands!: Table<Record<string, unknown>, string>;
-  brandVersions!: Table<BrandVersionSnapshot, string>;
-  prompts!: Table<PromptTemplate, string>;
-  promptVersions!: Table<PromptVersionSnapshot, string>;
-  settings!: Table<SettingsRecord, string>;
-  costLog!: Table<CostLogEntry, string>;
-  researchCache!: Table<ResearchCacheEntry, string>;
-  downloadHistory!: Table<DownloadHistoryEntry, string>;
-
-  constructor() {
-    super("PinHubDB");
-    this.version(1).stores({
-      runs: "id, niche, status, target_date, created_at, run_type",
-      brands: "id, [identity.name], updated_at",
-      brandVersions: "id, brand_id, created_at",
-      prompts: "id, name, version",
-      promptVersions: "id, prompt_id, created_at",
-      settings: "id",
-      costLog: "id, date, provider",
-      researchCache: "id, niche, week_of, expires_at",
-      downloadHistory: "id, created_at",
-    });
-  }
-}
-
-export const db = new PinHubDB();

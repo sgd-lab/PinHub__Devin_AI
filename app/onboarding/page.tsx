@@ -25,10 +25,12 @@ const steps = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
-  const [nvidiaKey, setNvidiaKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
   const [openrouterKey, setOpenrouterKey] = useState("");
-  const [nvidiaStatus, setNvidiaStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [nvidiaKey, setNvidiaKey] = useState("");
+  const [geminiStatus, setGeminiStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [openrouterStatus, setOpenrouterStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [nvidiaStatus, setNvidiaStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [notionToken, setNotionToken] = useState("");
   const [notionPageId, setNotionPageId] = useState("");
   const [loadedDefaults, setLoadedDefaults] = useState(false);
@@ -54,6 +56,21 @@ export default function OnboardingPage() {
   const handleStartBlank = () => {
     setCurrentStep(1);
     setOnboardingStep(1);
+  };
+
+  const handleTestGemini = async () => {
+    if (!geminiKey) return;
+    setGeminiStatus("testing");
+    storeApiKey("gemini", geminiKey, passphrase);
+    const result = await testProviderConnection("gemini", geminiKey, "https://generativelanguage.googleapis.com/v1beta/openai");
+    if (result.success) {
+      setGeminiStatus("success");
+      setProvider("gemini", { api_key_ref: "gemini", enabled: true });
+      toast.success("Gemini connected successfully");
+    } else {
+      setGeminiStatus("error");
+      toast.error(`Gemini connection failed: ${result.error}`);
+    }
   };
 
   const handleTestNvidia = async () => {
@@ -86,10 +103,14 @@ export default function OnboardingPage() {
     }
   };
 
+  const hasAnyApiKey = geminiStatus === "success" || openrouterStatus === "success" || nvidiaStatus === "success";
+
   const handleApiKeysNext = () => {
-    if (nvidiaStatus === "success" || openrouterStatus === "success") {
-      updateOnboardingChecklist("addApiKeys", true);
+    if (!hasAnyApiKey) {
+      toast.error("Please connect at least one AI provider to continue");
+      return;
     }
+    updateOnboardingChecklist("addApiKeys", true);
     setCurrentStep(2);
     setOnboardingStep(2);
   };
@@ -212,11 +233,87 @@ export default function OnboardingPage() {
               <div>
                 <h1 className="font-serif text-3xl text-deep-espresso italic mb-2">Configure Your Atelier</h1>
                 <p className="text-charcoal">
-                  Connect your preferred AI engines to begin crafting your visual strategy with PinHub OS.
+                  Connect at least one AI provider to begin. We recommend starting with a <strong>free tier</strong> option.
                 </p>
               </div>
 
+              <div className="bg-soft-sage/10 border border-soft-sage/30 rounded-lg p-4 text-sm text-deep-espresso">
+                <p className="font-medium mb-1">Recommended: Start free</p>
+                <p className="text-xs text-charcoal">Gemini and OpenRouter both offer free tiers — no credit card required. You can add more providers later in Settings.</p>
+              </div>
+
               <div className="space-y-4">
+                {/* Gemini - Free Tier */}
+                <div className="bg-white/60 border-2 border-soft-sage/40 rounded-lg p-5">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Gemini API Key</Label>
+                      <span className="text-[10px] bg-soft-sage/20 text-soft-sage px-1.5 py-0.5 rounded font-medium uppercase">Free Tier</span>
+                    </div>
+                    {geminiStatus === "success" && (
+                      <span className="text-xs text-soft-sage flex items-center gap-1">
+                        <Check size={12} /> Connected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-charcoal mb-3">60 requests/min, 1,500/day. No credit card required.</p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      value={geminiKey}
+                      onChange={(e) => setGeminiKey(e.target.value)}
+                      placeholder="AIza..."
+                      className="bg-warm-ivory border-warm-taupe/40 rounded-lg"
+                    />
+                    <Button
+                      onClick={handleTestGemini}
+                      disabled={!geminiKey || geminiStatus === "testing"}
+                      className="bg-deep-espresso text-warm-ivory rounded-lg"
+                    >
+                      {geminiStatus === "testing" ? "Testing..." : "Test"}
+                    </Button>
+                  </div>
+                  <a href="https://ai.google.dev" target="_blank" rel="noopener" className="text-xs text-dusty-rose hover:underline mt-2 inline-block">
+                    Get a free API key at ai.google.dev
+                  </a>
+                </div>
+
+                {/* OpenRouter - Free Models */}
+                <div className="bg-white/60 border-2 border-soft-sage/40 rounded-lg p-5">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">OpenRouter API Key</Label>
+                      <span className="text-[10px] bg-soft-sage/20 text-soft-sage px-1.5 py-0.5 rounded font-medium uppercase">Free Models</span>
+                    </div>
+                    {openrouterStatus === "success" && (
+                      <span className="text-xs text-soft-sage flex items-center gap-1">
+                        <Check size={12} /> Connected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-charcoal mb-3">Free models available (e.g. meta-llama/llama-3.1-8b-instruct:free).</p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      value={openrouterKey}
+                      onChange={(e) => setOpenrouterKey(e.target.value)}
+                      placeholder="sk-or-..."
+                      className="bg-warm-ivory border-warm-taupe/40 rounded-lg"
+                    />
+                    <Button
+                      onClick={handleTestOpenRouter}
+                      disabled={!openrouterKey || openrouterStatus === "testing"}
+                      className="bg-deep-espresso text-warm-ivory rounded-lg"
+                    >
+                      {openrouterStatus === "testing" ? "Testing..." : "Test"}
+                    </Button>
+                  </div>
+                  <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" className="text-xs text-dusty-rose hover:underline mt-2 inline-block">
+                    Get a key at openrouter.ai
+                  </a>
+                </div>
+
+                {/* NVIDIA - Paid */}
                 <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5">
                   <div className="flex items-center justify-between mb-3">
                     <Label className="text-sm font-medium">NVIDIA API Key</Label>
@@ -246,41 +343,16 @@ export default function OnboardingPage() {
                     Where to find this
                   </a>
                 </div>
-
-                <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <Label className="text-sm font-medium">OpenRouter API Key</Label>
-                    {openrouterStatus === "success" && (
-                      <span className="text-xs text-soft-sage flex items-center gap-1">
-                        <Check size={12} /> Connected
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      type="password"
-                      value={openrouterKey}
-                      onChange={(e) => setOpenrouterKey(e.target.value)}
-                      placeholder="sk-or-..."
-                      className="bg-warm-ivory border-warm-taupe/40 rounded-lg"
-                    />
-                    <Button
-                      onClick={handleTestOpenRouter}
-                      disabled={!openrouterKey || openrouterStatus === "testing"}
-                      className="bg-deep-espresso text-warm-ivory rounded-lg"
-                    >
-                      {openrouterStatus === "testing" ? "Testing..." : "Test"}
-                    </Button>
-                  </div>
-                  <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" className="text-xs text-dusty-rose hover:underline mt-2 inline-block">
-                    Where to find this
-                  </a>
-                </div>
               </div>
+
+              {!hasAnyApiKey && (
+                <p className="text-xs text-dusty-rose text-center">Connect at least one provider to continue</p>
+              )}
 
               <Button
                 onClick={handleApiKeysNext}
-                className="w-full bg-deep-espresso text-warm-ivory px-6 py-3 rounded-lg font-medium"
+                disabled={!hasAnyApiKey}
+                className="w-full bg-deep-espresso text-warm-ivory px-6 py-3 rounded-lg font-medium disabled:opacity-50"
               >
                 Continue <ArrowRight className="ml-2" size={16} />
               </Button>

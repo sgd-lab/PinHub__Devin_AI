@@ -1,6 +1,8 @@
 "use client";
 
 import { Zap, Clock, Play, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function AutomationPage() {
   return (
@@ -17,12 +19,13 @@ export default function AutomationPage() {
         <div className="w-20 h-20 bg-muted-gold/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Zap size={32} className="text-muted-gold" />
         </div>
-        <h3 className="font-serif text-xl text-deep-espresso mb-2">Automation Hub — Phase 2</h3>
+        <h3 className="font-serif text-xl text-deep-espresso mb-2">Automation Hub — Coming Soon</h3>
         <p className="text-sm text-charcoal max-w-md mx-auto mb-6">
-          Automated scheduling, batch generation, and workflow triggers are planned for the next phase. Currently available: manual generation via the Generate pages.
+          Automated scheduling, batch generation, and workflow triggers are planned for the next release.
+          Currently available: manual generation via the Generate pages.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mb-6">
           <div className="bg-warm-ivory rounded-lg p-4 text-left">
             <Clock size={16} className="text-muted-gold mb-2" />
             <h4 className="text-sm font-medium text-deep-espresso mb-1">Scheduled Runs</h4>
@@ -39,6 +42,12 @@ export default function AutomationPage() {
             <p className="text-xs text-charcoal">Push to Notion on generation</p>
           </div>
         </div>
+
+        <Link href="/dashboard">
+          <Button variant="outline" className="border-warm-taupe rounded-lg text-sm">
+            Back to Dashboard
+          </Button>
+        </Link>
       </div>
     </div>
   );

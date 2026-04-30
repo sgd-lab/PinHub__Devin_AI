@@ -13,16 +13,23 @@ import { executeGeneration } from "@/lib/ai/executionPipeline";
 import { retrieveApiKey } from "@/lib/encryption/keyStore";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
+import { AIErrorCard } from "@/components/ai/AIErrorCard";
+import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
 
 export default function DailyProducerPage() {
   const { activeBrand } = useBrandStore();
   const { providers, defaultProvider } = useSettingsStore();
   const { temperature, maxTokens, targetDate, holdForReview, setTemperature, setCurrentRun, resetRun, setHoldForReview, currentRun } = useGeneratorStore();
+  const { hasKey, checked } = useApiKeyGate();
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
   const [countries, setCountries] = useState(["US", "CA", "UK"]);
+  const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  if (!checked || !hasKey) return null;
 
   const today = new Date();
   const dayOfWeek = format(today, "EEEE");
@@ -37,6 +44,7 @@ export default function DailyProducerPage() {
 
     resetRun();
     setOutput("");
+    setAiError(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -107,7 +115,13 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
       });
       setCurrentRun({ status: "complete", qcResults: result.qcResults, costEstimate: result.usage.cost, inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens });
       toast.success("3 pins generated!");
-    } catch (err) { toast.error(String(err)); } finally { setStreaming(false); }
+    } catch (err) {
+      if ((err as Error).name !== "AbortError") {
+        const errorInfo = parseAIError(err, selectedProvider);
+        setAiError(errorInfo);
+        toast.error(errorInfo.message);
+      }
+    } finally { setStreaming(false); }
   };
 
   const handleCopyNanoBanana = (prompt: string) => {
@@ -139,8 +153,8 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
             <div>
               <Label className="text-sm font-medium mb-1.5 block">AI Provider</Label>
               <div className="flex gap-1.5">
-                {["nvidia", "openrouter"].map((p) => (
-                  <button key={p} onClick={() => setSelectedProvider(p)} className={`px-3 py-1.5 text-xs rounded-lg uppercase ${selectedProvider === p ? "bg-deep-espresso text-warm-ivory" : "bg-warm-ivory border border-warm-taupe/40"}`}>{p}</button>
+                {["gemini", "openrouter", ...Object.keys(providers).filter(p => p !== "gemini" && p !== "openrouter")].filter(p => providers[p]?.enabled || providers[p]?.api_key_ref).map((p) => (
+                  <button key={p} onClick={() => setSelectedProvider(p)} className={`px-3 py-1.5 text-xs rounded-lg uppercase ${selectedProvider === p ? "bg-deep-espresso text-warm-ivory" : "bg-warm-ivory border border-warm-taupe/40"}`}>{p}{(p === "gemini" || p === "openrouter") ? " ★" : ""}</button>
                 ))}
               </div>
             </div>
@@ -163,6 +177,11 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
 
         <div className="space-y-4">
           <h2 className="font-serif text-2xl text-deep-espresso">Output</h2>
+          {aiError && (
+            <div className="mb-4">
+              <AIErrorCard error={aiError} onRetry={handleGenerate} onDismiss={() => setAiError(null)} />
+            </div>
+          )}
           <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5 min-h-[400px]">
             {!output && !streaming ? (
               <div className="flex flex-col items-center justify-center h-[350px] text-center text-charcoal">

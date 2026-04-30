@@ -13,6 +13,9 @@ import { useGeneratorStore } from "@/stores/generatorStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
 import { retrieveApiKey } from "@/lib/encryption/keyStore";
 import { toast } from "sonner";
+import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
+import { AIErrorCard } from "@/components/ai/AIErrorCard";
+import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
 
 export default function SinglePinGeneratorPage() {
   const { activeBrand } = useBrandStore();
@@ -23,12 +26,16 @@ export default function SinglePinGeneratorPage() {
     setTemperature, setMaxTokens, setSelectedNiche, setTargetDate,
     setCurrentRun, resetRun, setHoldForReview,
   } = useGeneratorStore();
+  const { hasKey, checked } = useApiKeyGate();
 
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  if (!checked || !hasKey) return null;
 
   const handleGenerate = async () => {
     if (!activeBrand) {
@@ -50,6 +57,7 @@ export default function SinglePinGeneratorPage() {
 
     resetRun();
     setOutput("");
+    setAiError(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -136,7 +144,11 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
       toast.success("Pin generated successfully!");
     } catch (err) {
-      toast.error(String(err));
+      if ((err as Error).name !== "AbortError") {
+        const errorInfo = parseAIError(err, selectedProvider);
+        setAiError(errorInfo);
+        toast.error(errorInfo.message);
+      }
     } finally {
       setStreaming(false);
     }
@@ -157,10 +169,10 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Input Panel */}
         <div className="space-y-4">
-          <h2 className="font-serif text-2xl text-deep-espresso">Single Pin Generator</h2>
+          <h2 className="font-serif text-xl sm:text-2xl text-deep-espresso">Single Pin Generator</h2>
 
           <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5 space-y-4">
             <div>
@@ -230,7 +242,7 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
             <div>
               <Label className="text-sm font-medium mb-1.5 block">AI Provider</Label>
               <div className="flex gap-1.5">
-                {["nvidia", "openrouter"].map((p) => (
+                {["gemini", "openrouter", ...Object.keys(providers).filter(p => p !== "gemini" && p !== "openrouter")].filter(p => providers[p]?.enabled || providers[p]?.api_key_ref).map((p) => (
                   <button
                     key={p}
                     onClick={() => setSelectedProvider(p)}
@@ -240,7 +252,7 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
                         : "bg-warm-ivory border border-warm-taupe/40 text-charcoal hover:bg-cream-hover"
                     }`}
                   >
-                    {p}
+                    {p}{(p === "gemini" || p === "openrouter") ? " ★" : ""}
                   </button>
                 ))}
               </div>
@@ -304,7 +316,12 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
           <h2 className="font-serif text-2xl text-deep-espresso">Output</h2>
 
           <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5 min-h-[400px]">
-            {!output && !streaming ? (
+            {aiError && (
+              <div className="mb-4">
+                <AIErrorCard error={aiError} onRetry={handleGenerate} onDismiss={() => setAiError(null)} />
+              </div>
+            )}
+            {!output && !streaming && !aiError ? (
               <div className="flex flex-col items-center justify-center h-[350px] text-center text-charcoal">
                 <Sparkles size={32} strokeWidth={1} className="text-warm-taupe mb-3" />
                 <p className="text-sm">Fill in the inputs and press Generate.</p>

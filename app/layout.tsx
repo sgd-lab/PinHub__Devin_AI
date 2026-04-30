@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -6,6 +6,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { CostMeter } from "@/components/layout/CostMeter";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -26,6 +27,12 @@ export const metadata: Metadata = {
   description: "Private Pinterest Content OS for Maya Sofia",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -37,14 +44,17 @@ export default function RootLayout({
         <ThemeProvider>
           <TooltipProvider>
             <div className="flex h-screen overflow-hidden">
-              <Sidebar />
+              <div className="hidden sm:block">
+                <Sidebar />
+              </div>
               <div className="flex flex-col flex-1 overflow-hidden">
                 <TopBar />
-                <main className="flex-1 overflow-y-auto p-6">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-20 sm:pb-6">
                   {children}
                 </main>
               </div>
             </div>
+            <MobileBottomNav />
             <CostMeter />
             <CommandPalette />
             <Toaster />

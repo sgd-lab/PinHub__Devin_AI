@@ -46,6 +46,7 @@ export default function DashboardPage() {
 
   const hasNvidia = hasApiKey("nvidia");
   const hasOpenRouter = hasApiKey("openrouter");
+  const hasGemini = hasApiKey("gemini");
   const hasNotion = notion.enabled;
 
   return (
@@ -148,6 +149,10 @@ export default function DashboardPage() {
               <span className={`text-xs flex items-center gap-1 ${hasOpenRouter ? "text-soft-sage" : "text-warm-taupe"}`}>
                 <span className={`w-2 h-2 rounded-full ${hasOpenRouter ? "bg-soft-sage" : "bg-warm-taupe"}`} />
                 OpenRouter
+              </span>
+              <span className={`text-xs flex items-center gap-1 ${hasGemini ? "text-soft-sage" : "text-warm-taupe"}`}>
+                <span className={`w-2 h-2 rounded-full ${hasGemini ? "bg-soft-sage" : "bg-warm-taupe"}`} />
+                Gemini
               </span>
             </div>
           </div>

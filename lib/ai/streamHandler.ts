@@ -110,13 +110,23 @@ export function estimateCost(
   const costs: Record<string, { input: number; output: number }> = {
     default: { input: 0.5, output: 1.5 },
     "claude-3.5-sonnet": { input: 3, output: 15 },
+    "claude-3-haiku": { input: 0.25, output: 1.25 },
     "gpt-4o": { input: 2.5, output: 10 },
     "gpt-4o-mini": { input: 0.15, output: 0.6 },
+    "gemini-pro": { input: 0, output: 0 },
+    "gemini-2": { input: 0, output: 0 },
+    "gemini-1.5": { input: 0, output: 0 },
     "llama-3.1": { input: 0.2, output: 0.2 },
+    "llama-3.3": { input: 0.2, output: 0.2 },
+    "nemotron": { input: 0.3, output: 0.3 },
+    "mistral": { input: 0.2, output: 0.6 },
+    "deepseek": { input: 0.14, output: 0.28 },
+    "qwen": { input: 0.15, output: 0.6 },
   };
 
+  const modelLower = model.toLowerCase();
   const modelKey =
-    Object.keys(costs).find((k) => model.toLowerCase().includes(k)) ||
+    Object.keys(costs).find((k) => k !== "default" && modelLower.includes(k)) ||
     "default";
   const rate = costs[modelKey];
 

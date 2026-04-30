@@ -198,6 +198,10 @@ export async function executeGeneration(
     run_id: runRecord.id,
   });
 
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("pinhub:cost-update"));
+  }
+
   // Stage 9: Sync (placeholder)
   onStageChange("sync");
   onProgress(100);

@@ -11,6 +11,7 @@ import { executeGeneration } from "@/lib/ai/executionPipeline";
 import { retrieveApiKey } from "@/lib/encryption/keyStore";
 import { toast } from "sonner";
 import { format, addDays, startOfWeek } from "date-fns";
+import { parseAIError } from "@/lib/ai/aiErrorHandler";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -114,7 +115,10 @@ Voice: ${activeBrand.voice.power_words.join(", ")}`,
         localSuccessCount++;
       } catch (err) {
         setDayStatus((prev) => ({ ...prev, [day]: "error" }));
-        if ((err as Error).name !== "AbortError") toast.error(`Day ${day + 1}: ${(err as Error).message}`);
+        if ((err as Error).name !== "AbortError") {
+          const errorInfo = parseAIError(err, defaultProvider);
+          toast.error(`Day ${day + 1}: ${errorInfo.message}`);
+        }
       }
 
       setCompletedDays(day + 1);

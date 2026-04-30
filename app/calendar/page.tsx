@@ -1,14 +1,26 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-// import { Badge } from "@/components/ui/badge";
 import { useBrandStore } from "@/stores/brandStore";
 import { getPinsForDateRange, updateRunTargetDate } from "@/lib/db/runRepository";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from "date-fns";
 import type { RunRecord } from "@/lib/db/dexie";
 import { toast } from "sonner";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 const NICHE_COLORS: Record<string, string> = {
   "Quiet Luxury Workwear": "#3E2723",
@@ -16,18 +28,93 @@ const NICHE_COLORS: Record<string, string> = {
   "Evening Edit": "#C9B458",
 };
 
+function DraggablePin({ pin }: { pin: RunRecord }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: pin.id,
+    data: { type: "pin", pin },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="text-[10px] bg-warm-ivory border border-warm-taupe/20 rounded px-1.5 py-1 mb-0.5 cursor-grab active:cursor-grabbing truncate touch-none"
+      title={pin.parsed_fields.title as string}
+      role="button"
+      aria-roledescription="draggable pin"
+      aria-label={`Pin: ${pin.parsed_fields.title || "Untitled"}`}
+    >
+      {(pin.parsed_fields.title as string) || "Untitled"}
+    </div>
+  );
+}
+
+function DroppableDay({
+  dateStr,
+  isToday,
+  day,
+  niche,
+  dayPins,
+  planningMode,
+}: {
+  dateStr: string;
+  isToday: boolean;
+  day: Date;
+  niche: { name: string } | null | undefined;
+  dayPins: RunRecord[];
+  planningMode: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `day-${dateStr}` });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`min-h-[60px] sm:min-h-[120px] border-b border-r border-warm-taupe/10 p-0.5 sm:p-1.5 transition-colors ${isToday ? "bg-dusty-rose/5" : ""} ${isOver ? "bg-soft-sage/20 ring-2 ring-soft-sage/40 ring-inset" : ""}`}
+      aria-label={`${format(day, "MMMM d, yyyy")}${niche ? ` — ${niche.name}` : ""}`}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <span className={`text-xs font-medium ${isToday ? "text-dusty-rose" : "text-charcoal"}`}>{format(day, "d")}</span>
+        {niche && (
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NICHE_COLORS[niche.name] || "#C9A99A" }} title={niche.name} />
+        )}
+      </div>
+      {dayPins.map((pin) => (
+        <DraggablePin key={pin.id} pin={pin} />
+      ))}
+      {planningMode && dayPins.length === 0 && niche && (
+        <button className="w-full text-[10px] border border-dashed border-warm-taupe/30 rounded py-2 text-warm-taupe hover:bg-cream-hover">
+          <Plus size={10} className="inline mr-0.5" />Generate
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function CalendarPage() {
   const { activeBrand } = useBrandStore();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [pins, setPins] = useState<RunRecord[]>([]);
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [planningMode, setPlanningMode] = useState(false);
-  const [draggedPin, setDraggedPin] = useState<string | null>(null);
+  const [activePin, setActivePin] = useState<RunRecord | null>(null);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startDay = getDay(monthStart);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
 
   useEffect(() => {
     const load = async () => {
@@ -36,7 +123,9 @@ export default function CalendarPage() {
         const end = format(monthEnd, "yyyy-MM-dd");
         const data = await getPinsForDateRange(start, end);
         setPins(data);
-      } catch {}
+      } catch {
+        // DB not ready
+      }
     };
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -52,22 +141,37 @@ export default function CalendarPage() {
     return map;
   }, [pins]);
 
-  const getNicheForDay = (date: Date) => {
+  const getNicheForDay = useCallback((date: Date) => {
     if (!activeBrand) return null;
     const dayName = format(date, "EEE") as "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
     return activeBrand.niches.find((n) => n.rotation_days.includes(dayName));
+  }, [activeBrand]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const pin = pins.find((p) => p.id === event.active.id);
+    if (pin) setActivePin(pin);
   };
 
-  const handleDrop = async (dateStr: string) => {
-    if (!draggedPin) return;
+  const handleDragEnd = async (event: DragEndEvent) => {
+    setActivePin(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const overId = String(over.id);
+    if (!overId.startsWith("day-")) return;
+
+    const newDate = overId.replace("day-", "");
+    const pinId = String(active.id);
+    const pin = pins.find((p) => p.id === pinId);
+    if (!pin || pin.target_date === newDate) return;
+
     try {
-      await updateRunTargetDate(draggedPin, dateStr);
-      setPins((prev) => prev.map((p) => p.id === draggedPin ? { ...p, target_date: dateStr } : p));
+      await updateRunTargetDate(pinId, newDate);
+      setPins((prev) => prev.map((p) => p.id === pinId ? { ...p, target_date: newDate } : p));
       toast.success("Pin moved");
     } catch {
       toast.error("Failed to move pin");
     }
-    setDraggedPin(null);
   };
 
   const totalPins = pins.length;
@@ -78,9 +182,9 @@ export default function CalendarPage() {
       {/* Top controls */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 hover:bg-cream-hover rounded-lg"><ChevronLeft size={16} /></button>
+          <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="p-1.5 hover:bg-cream-hover rounded-lg" aria-label="Previous month"><ChevronLeft size={16} /></button>
           <h2 className="font-serif text-xl text-deep-espresso">{format(currentMonth, "MMMM yyyy")}</h2>
-          <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 hover:bg-cream-hover rounded-lg"><ChevronRight size={16} /></button>
+          <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="p-1.5 hover:bg-cream-hover rounded-lg" aria-label="Next month"><ChevronRight size={16} /></button>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-0.5 bg-warm-ivory border border-warm-taupe/30 rounded-lg p-0.5">
@@ -95,56 +199,46 @@ export default function CalendarPage() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="bg-white/60 border border-warm-taupe/30 rounded-lg overflow-hidden">
-        <div className="grid grid-cols-7 text-center text-xs font-medium text-charcoal uppercase tracking-wider">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="py-2 border-b border-warm-taupe/20">{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {Array.from({ length: startDay }, (_, i) => (
-            <div key={`empty-${i}`} className="min-h-[120px] border-b border-r border-warm-taupe/10 bg-warm-ivory/30" />
-          ))}
-          {days.map((day) => {
-            const dateStr = format(day, "yyyy-MM-dd");
-            const dayPins = pinsByDate[dateStr] || [];
-            const niche = getNicheForDay(day);
-            const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="bg-white/60 border border-warm-taupe/30 rounded-lg overflow-x-auto">
+          <div className="grid grid-cols-7 text-center text-xs font-medium text-charcoal uppercase tracking-wider min-w-[350px]">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+              <div key={d} className="py-2 border-b border-warm-taupe/20">{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 min-w-[350px]">
+            {Array.from({ length: startDay }, (_, i) => (
+              <div key={`empty-${i}`} className="min-h-[120px] border-b border-r border-warm-taupe/10 bg-warm-ivory/30" />
+            ))}
+            {days.map((day) => {
+              const dateStr = format(day, "yyyy-MM-dd");
+              const dayPins = pinsByDate[dateStr] || [];
+              const niche = getNicheForDay(day);
+              const isToday = format(day, "yyyy-MM-dd") === format(new Date(), "yyyy-MM-dd");
 
-            return (
-              <div
-                key={dateStr}
-                className={`min-h-[120px] border-b border-r border-warm-taupe/10 p-1.5 ${isToday ? "bg-dusty-rose/5" : ""}`}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(dateStr)}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-xs font-medium ${isToday ? "text-dusty-rose" : "text-charcoal"}`}>{format(day, "d")}</span>
-                  {niche && (
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: NICHE_COLORS[niche.name] || "#C9A99A" }} title={niche.name} />
-                  )}
-                </div>
-                {dayPins.map((pin) => (
-                  <div
-                    key={pin.id}
-                    draggable
-                    onDragStart={() => setDraggedPin(pin.id)}
-                    className="text-[10px] bg-warm-ivory border border-warm-taupe/20 rounded px-1.5 py-1 mb-0.5 cursor-grab truncate"
-                    title={pin.parsed_fields.title as string}
-                  >
-                    {pin.parsed_fields.title as string || "Untitled"}
-                  </div>
-                ))}
-                {planningMode && dayPins.length === 0 && niche && (
-                  <button className="w-full text-[10px] border border-dashed border-warm-taupe/30 rounded py-2 text-warm-taupe hover:bg-cream-hover">
-                    <Plus size={10} className="inline mr-0.5" />Generate
-                  </button>
-                )}
-              </div>
-            );
-          })}
+              return (
+                <DroppableDay
+                  key={dateStr}
+                  dateStr={dateStr}
+                  isToday={isToday}
+                  day={day}
+                  niche={niche}
+                  dayPins={dayPins}
+                  planningMode={planningMode}
+                />
+              );
+            })}
+          </div>
         </div>
-      </div>
+
+        <DragOverlay>
+          {activePin && (
+            <div className="text-[10px] bg-warm-ivory border border-warm-taupe/30 rounded px-2 py-1.5 shadow-lg max-w-[140px] truncate">
+              {(activePin.parsed_fields.title as string) || "Untitled"}
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       {/* Bottom stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

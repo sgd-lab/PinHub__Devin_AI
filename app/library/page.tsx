@@ -52,10 +52,10 @@ export default function LibraryPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <div className="flex gap-6">
+      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
         {/* Filter Sidebar */}
         {showFilters && (
-          <div className="w-56 shrink-0 space-y-4">
+          <div className="w-full sm:w-56 shrink-0 space-y-4">
             <h3 className="text-xs font-medium text-charcoal uppercase tracking-wider">Filters</h3>
 
             <div>

@@ -107,7 +107,7 @@ export default function PrivacyPage() {
                     const tableNames = ["runs", "brands", "brandVersions", "prompts", "promptVersions", "settings", "costLog", "researchCache", "downloadHistory"] as const;
                     for (const t of tableNames) {
                       if (Array.isArray(data.indexedDB[t]) && data.indexedDB[t].length > 0) {
-                        await db[t].bulkPut(data.indexedDB[t]);
+                        await (db[t] as { bulkPut: (items: unknown[]) => Promise<unknown> }).bulkPut(data.indexedDB[t]);
                       }
                     }
                   }

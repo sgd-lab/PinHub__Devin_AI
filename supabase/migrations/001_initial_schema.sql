@@ -38,12 +38,12 @@ CREATE TABLE IF NOT EXISTS pins (
   metadata JSONB DEFAULT '{}'
 );
 
-CREATE INDEX idx_pins_niche ON pins(niche);
-CREATE INDEX idx_pins_status ON pins(status);
-CREATE INDEX idx_pins_target_date ON pins(target_date);
-CREATE INDEX idx_pins_created_at ON pins(created_at);
-CREATE INDEX idx_pins_run_type ON pins(run_type);
-CREATE INDEX idx_pins_brand_id ON pins(brand_id);
+CREATE INDEX IF NOT EXISTS idx_pins_niche ON pins(niche);
+CREATE INDEX IF NOT EXISTS idx_pins_status ON pins(status);
+CREATE INDEX IF NOT EXISTS idx_pins_target_date ON pins(target_date);
+CREATE INDEX IF NOT EXISTS idx_pins_created_at ON pins(created_at);
+CREATE INDEX IF NOT EXISTS idx_pins_run_type ON pins(run_type);
+CREATE INDEX IF NOT EXISTS idx_pins_brand_id ON pins(brand_id);
 
 -- Brands table
 CREATE TABLE IF NOT EXISTS brands (
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS brands (
   metadata JSONB DEFAULT '{}'
 );
 
-CREATE INDEX idx_brands_name ON brands(name);
+CREATE INDEX IF NOT EXISTS idx_brands_name ON brands(name);
 
 -- Brand versions for history tracking
 CREATE TABLE IF NOT EXISTS brand_versions (
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS brand_versions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_brand_versions_brand_id ON brand_versions(brand_id);
+CREATE INDEX IF NOT EXISTS idx_brand_versions_brand_id ON brand_versions(brand_id);
 
 -- Prompts table
 CREATE TABLE IF NOT EXISTS prompts (
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS prompts (
   average_qc_score NUMERIC DEFAULT 0
 );
 
-CREATE INDEX idx_prompts_name ON prompts(name);
+CREATE INDEX IF NOT EXISTS idx_prompts_name ON prompts(name);
 
 -- Prompt versions
 CREATE TABLE IF NOT EXISTS prompt_versions (
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_prompt_versions_prompt_id ON prompt_versions(prompt_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt_id ON prompt_versions(prompt_id);
 
 -- Library items (aggregated view items)
 CREATE TABLE IF NOT EXISTS library_items (
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS library_items (
   metadata JSONB DEFAULT '{}'
 );
 
-CREATE INDEX idx_library_items_pin_id ON library_items(pin_id);
+CREATE INDEX IF NOT EXISTS idx_library_items_pin_id ON library_items(pin_id);
 
 -- Calendar events
 CREATE TABLE IF NOT EXISTS calendar_events (
@@ -140,8 +140,8 @@ CREATE TABLE IF NOT EXISTS calendar_events (
   metadata JSONB DEFAULT '{}'
 );
 
-CREATE INDEX idx_calendar_events_date ON calendar_events(event_date);
-CREATE INDEX idx_calendar_events_pin_id ON calendar_events(pin_id);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(event_date);
+CREATE INDEX IF NOT EXISTS idx_calendar_events_pin_id ON calendar_events(pin_id);
 
 -- Analytics events
 CREATE TABLE IF NOT EXISTS analytics_events (
@@ -157,8 +157,8 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   run_id UUID
 );
 
-CREATE INDEX idx_analytics_events_type ON analytics_events(event_type);
-CREATE INDEX idx_analytics_events_created_at ON analytics_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_type ON analytics_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at);
 
 -- QC Rules
 CREATE TABLE IF NOT EXISTS qc_rules (
@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS export_history (
   metadata JSONB DEFAULT '{}'
 );
 
-CREATE INDEX idx_export_history_created_at ON export_history(created_at);
+CREATE INDEX IF NOT EXISTS idx_export_history_created_at ON export_history(created_at);
 
 -- App settings (key-value store for cumulative costs, preferences, etc.)
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -194,7 +194,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_app_settings_key ON app_settings(key);
+CREATE INDEX IF NOT EXISTS idx_app_settings_key ON app_settings(key);
 
 -- Notion connection info
 CREATE TABLE IF NOT EXISTS notion_connection (
@@ -222,8 +222,8 @@ CREATE TABLE IF NOT EXISTS cost_log (
   run_id TEXT DEFAULT ''
 );
 
-CREATE INDEX idx_cost_log_date ON cost_log(date);
-CREATE INDEX idx_cost_log_provider ON cost_log(provider);
+CREATE INDEX IF NOT EXISTS idx_cost_log_date ON cost_log(date);
+CREATE INDEX IF NOT EXISTS idx_cost_log_provider ON cost_log(provider);
 
 -- Research cache
 CREATE TABLE IF NOT EXISTS research_cache (
@@ -235,7 +235,7 @@ CREATE TABLE IF NOT EXISTS research_cache (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_research_cache_niche ON research_cache(niche);
+CREATE INDEX IF NOT EXISTS idx_research_cache_niche ON research_cache(niche);
 
 -- Enable Row Level Security on all tables (open for now since no auth)
 ALTER TABLE pins ENABLE ROW LEVEL SECURITY;
@@ -254,6 +254,23 @@ ALTER TABLE cost_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE research_cache ENABLE ROW LEVEL SECURITY;
 
 -- Create permissive policies for anon access (single-user app, no auth)
+DO $$ BEGIN
+  DROP POLICY IF EXISTS "Allow all for anon" ON pins;
+  DROP POLICY IF EXISTS "Allow all for anon" ON brands;
+  DROP POLICY IF EXISTS "Allow all for anon" ON brand_versions;
+  DROP POLICY IF EXISTS "Allow all for anon" ON prompts;
+  DROP POLICY IF EXISTS "Allow all for anon" ON prompt_versions;
+  DROP POLICY IF EXISTS "Allow all for anon" ON library_items;
+  DROP POLICY IF EXISTS "Allow all for anon" ON calendar_events;
+  DROP POLICY IF EXISTS "Allow all for anon" ON analytics_events;
+  DROP POLICY IF EXISTS "Allow all for anon" ON qc_rules;
+  DROP POLICY IF EXISTS "Allow all for anon" ON export_history;
+  DROP POLICY IF EXISTS "Allow all for anon" ON app_settings;
+  DROP POLICY IF EXISTS "Allow all for anon" ON notion_connection;
+  DROP POLICY IF EXISTS "Allow all for anon" ON cost_log;
+  DROP POLICY IF EXISTS "Allow all for anon" ON research_cache;
+END $$;
+
 CREATE POLICY "Allow all for anon" ON pins FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON brands FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for anon" ON brand_versions FOR ALL USING (true) WITH CHECK (true);

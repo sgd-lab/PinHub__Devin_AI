@@ -1,25 +1,32 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Search, Sparkles, TrendingUp, Compass, Sun, Users } from "lucide-react";
+import { Search, Sparkles, TrendingUp, Compass, Sun, Users, Globe, ExternalLink, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useBrandStore } from "@/stores/brandStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { streamCompletion, estimateCost } from "@/lib/ai/streamHandler";
-import { retrieveApiKey } from "@/lib/encryption/keyStore";
+import { retrieveApiKey, hasApiKey } from "@/lib/encryption/keyStore";
 import { supabase } from "@/lib/db/supabase";
 import { toast } from "sonner";
 import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
 import { AIErrorCard } from "@/components/ai/AIErrorCard";
 import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
+import type { SearchResult } from "@/app/api/search/route";
 
 interface ResearchResult {
   trendingSubtopics: string[];
   contentAngles: string[];
   seasonalRelevance: string[];
   competitorIdeas: string[];
+}
+
+interface SourceLink {
+  title: string;
+  link: string;
+  snippet: string;
 }
 
 function parseResearchOutput(text: string): ResearchResult {
@@ -81,11 +88,16 @@ export default function ResearchEnhancerPage() {
   const { hasKey, checked } = useApiKeyGate();
   const [topic, setTopic] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [rawOutput, setRawOutput] = useState("");
   const [results, setResults] = useState<ResearchResult | null>(null);
+  const [sources, setSources] = useState<SourceLink[]>([]);
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  const hasSerperKey = typeof window !== "undefined" && hasApiKey("serper");
 
   if (!checked || !hasKey) return null;
 
@@ -108,24 +120,73 @@ export default function ResearchEnhancerPage() {
     }
 
     setStreaming(true);
+    setSearching(true);
     setRawOutput("");
     setResults(null);
+    setSources([]);
     setAiError(null);
+    setSearchError(null);
     abortRef.current = new AbortController();
 
+    // Step 1: Real web search (if Serper key is configured)
+    let searchResults: SearchResult[] = [];
+    const serperKey = retrieveApiKey("serper", "pinhub-default-key");
+
+    if (serperKey) {
+      try {
+        const searchRes = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: topic, apiKey: serperKey }),
+          signal: abortRef.current.signal,
+        });
+
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          searchResults = searchData.results || [];
+          setSources(searchResults.map((r: SearchResult) => ({
+            title: r.title,
+            link: r.link,
+            snippet: r.snippet,
+          })));
+        } else {
+          const errData = await searchRes.json();
+          setSearchError(errData.error || "Search failed");
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setSearchError("Web search failed — falling back to AI-only analysis");
+        }
+      }
+    }
+
+    setSearching(false);
+
+    // Step 2: Build prompt with real search data as context
     const brandContext = activeBrand
       ? `Brand: ${activeBrand.identity.name} (${activeBrand.identity.tagline})\nNiches: ${activeBrand.niches.map(n => n.name).join(", ")}\nVoice: ${activeBrand.voice.power_words.join(", ")}`
       : "No brand context";
+
+    const searchContext = searchResults.length > 0
+      ? `\n\n--- REAL WEB SEARCH RESULTS (use these as primary data) ---\n${searchResults.map((r, i) => `[${i + 1}] "${r.title}"\nURL: ${r.link}\nExcerpt: ${r.snippet}`).join("\n\n")}\n--- END SEARCH RESULTS ---`
+      : "";
+
+    const dataSourceNote = searchResults.length > 0
+      ? "IMPORTANT: Base your analysis primarily on the real web search results provided above. Cite specific findings from the search results. Do NOT make up data."
+      : "Note: No web search results available. Provide your best analysis based on your training data, but be clear about what is general knowledge vs. confirmed trends.";
 
     const prompt = `You are a Pinterest content research analyst. Research the following topic for Pinterest content creation.
 
 Topic: ${topic}
 ${brandContext}
+${searchContext}
+
+${dataSourceNote}
 
 Provide detailed research organized into exactly these 4 sections:
 
 ## Trending Subtopics
-List 6-8 trending subtopics related to "${topic}" on Pinterest. Include search volume indicators (high/medium/low) where possible.
+List 6-8 trending subtopics related to "${topic}" on Pinterest. Include search volume indicators (high/medium/low) where possible. ${searchResults.length > 0 ? "Reference specific findings from the search results." : ""}
 
 ## Content Angles
 List 5-7 unique content angles for creating pins about "${topic}". Each should be a specific, actionable pin idea.
@@ -134,7 +195,7 @@ List 5-7 unique content angles for creating pins about "${topic}". Each should b
 List 4-6 seasonal trends and timing insights for "${topic}". Include the best months to post and seasonal hooks.
 
 ## Competitor Content Ideas
-List 5-7 content ideas inspired by what top Pinterest creators do with "${topic}". Focus on formats, styles, and hooks that perform well.
+List 5-7 content ideas inspired by what top Pinterest creators do with "${topic}". Focus on formats, styles, and hooks that perform well. ${searchResults.length > 0 ? "Reference real examples from the search results where available." : ""}
 
 Use bullet points (- ) for each item. Be specific and actionable.`;
 
@@ -145,10 +206,10 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
         apiKey,
         model: provider.default_model,
         messages: [
-          { role: "system", content: "You are a Pinterest content research expert. Provide actionable, data-informed research for content creators." },
+          { role: "system", content: "You are a Pinterest content research expert. Provide actionable, data-informed research for content creators. When web search results are provided, base your analysis on that real data and cite specific sources." },
           { role: "user", content: prompt },
         ],
-        temperature: 0.8,
+        temperature: 0.7,
         maxTokens: 3000,
         onToken: (token) => {
           fullText += token;
@@ -189,6 +250,7 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
   const handleCancel = () => {
     abortRef.current?.abort();
     setStreaming(false);
+    setSearching(false);
   };
 
   return (
@@ -196,9 +258,26 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
       <div>
         <h2 className="font-serif text-2xl text-deep-espresso">Research Enhancer</h2>
         <p className="text-sm text-charcoal mt-1">
-          Discover trending subtopics, content angles, and competitor ideas for any Pinterest topic.
+          {hasSerperKey
+            ? "Real-time web search + AI analysis for Pinterest content research."
+            : "AI-powered Pinterest content research. Add a Serper API key in Settings for real web search data."}
         </p>
       </div>
+
+      {/* Serper key warning */}
+      {!hasSerperKey && (
+        <div className="bg-muted-gold/10 border border-muted-gold/30 rounded-lg p-4 flex items-start gap-3">
+          <AlertTriangle size={16} className="text-muted-gold mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-deep-espresso">No Web Search API Key</p>
+            <p className="text-xs text-charcoal mt-1">
+              Without a Serper API key, research uses AI knowledge only (not live data).
+              Add a free key in <a href="/settings/api-keys" className="text-dusty-rose underline">Settings → API Keys</a> for
+              real Google search results. Get one free at <a href="https://serper.dev" target="_blank" rel="noopener noreferrer" className="text-dusty-rose underline">serper.dev</a> (2,500 searches/month).
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Input Section */}
       <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5 space-y-4">
@@ -260,12 +339,34 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
         <AIErrorCard error={aiError} onRetry={handleResearch} onDismiss={() => setAiError(null)} />
       )}
 
+      {/* Search error (non-fatal) */}
+      {searchError && (
+        <div className="bg-muted-gold/10 border border-muted-gold/30 rounded-lg p-3 flex items-center gap-2 text-xs text-charcoal">
+          <AlertTriangle size={14} className="text-muted-gold flex-shrink-0" />
+          {searchError}
+        </div>
+      )}
+
+      {/* Searching indicator */}
+      {searching && (
+        <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5">
+          <div className="flex items-center gap-2">
+            <Globe size={16} className="text-soft-sage animate-spin" />
+            <span className="text-sm text-charcoal">Searching the web for real Pinterest data...</span>
+          </div>
+        </div>
+      )}
+
       {/* Streaming Raw Output */}
-      {streaming && rawOutput && (
+      {streaming && !searching && rawOutput && (
         <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-2 h-2 bg-soft-sage rounded-full animate-pulse" />
-            <span className="text-xs text-charcoal">Researching...</span>
+            <span className="text-xs text-charcoal">
+              {sources.length > 0
+                ? `Analyzing ${sources.length} search results...`
+                : "Generating research insights..."}
+            </span>
           </div>
           <div className="text-sm text-charcoal whitespace-pre-wrap max-h-[300px] overflow-y-auto">
             {rawOutput}
@@ -302,6 +403,36 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
         </div>
       )}
 
+      {/* Sources Panel */}
+      {sources.length > 0 && results && (
+        <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Globe size={16} className="text-charcoal" />
+            <h3 className="font-serif text-sm font-semibold text-deep-espresso">Sources ({sources.length})</h3>
+            <span className="text-[10px] bg-soft-sage/20 text-soft-sage px-1.5 py-0.5 rounded-full font-medium">LIVE DATA</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {sources.slice(0, 10).map((source, i) => (
+              <a
+                key={i}
+                href={source.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block border border-warm-taupe/20 rounded-lg p-3 hover:bg-cream-hover transition-colors group"
+              >
+                <div className="flex items-start gap-2">
+                  <ExternalLink size={12} className="text-charcoal mt-0.5 flex-shrink-0 group-hover:text-dusty-rose" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-medium text-deep-espresso truncate">{source.title}</div>
+                    <div className="text-[11px] text-charcoal/70 mt-0.5 line-clamp-2">{source.snippet}</div>
+                  </div>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Empty state */}
       {!streaming && !results && !aiError && (
         <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-12 text-center">
@@ -310,6 +441,9 @@ Use bullet points (- ) for each item. Be specific and actionable.`;
           <p className="text-sm text-charcoal max-w-md mx-auto">
             Enter a Pinterest topic or keyword above to discover trending subtopics,
             content angles, seasonal relevance, and competitor ideas.
+            {hasSerperKey
+              ? " Results are powered by real Google search data."
+              : " Add a Serper API key for real-time web data."}
           </p>
         </div>
       )}

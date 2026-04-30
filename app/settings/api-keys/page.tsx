@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Key, Check, Trash2, Star } from "lucide-react";
+import { Key, Check, Trash2, Star, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -117,6 +117,68 @@ export default function ApiKeysPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* Serper Web Search API Key */}
+      <div className="border-t border-warm-taupe/30 pt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Globe size={16} className="text-charcoal" />
+          <h3 className="text-lg font-serif text-deep-espresso">Web Search (Research Enhancer)</h3>
+        </div>
+        <p className="text-xs text-charcoal mb-4">
+          Power the Research Enhancer with real Google search data. Without this key, research uses AI knowledge only.
+        </p>
+        <div className="bg-white/60 border border-warm-taupe/30 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Key size={14} className="text-charcoal" />
+              <span className="text-sm font-medium text-deep-espresso">Serper.dev</span>
+              <span className="text-[10px] bg-soft-sage/20 text-soft-sage px-1.5 py-0.5 rounded-full font-medium">
+                FREE TIER
+              </span>
+              {hasApiKey("serper") && <span className="flex items-center gap-1 text-xs text-soft-sage"><Check size={10} />Connected</span>}
+            </div>
+          </div>
+          <p className="text-xs text-charcoal/70 mb-2 bg-warm-ivory/50 px-3 py-1.5 rounded">
+            2,500 free searches/month. No credit card required. Get a key at{" "}
+            <a href="https://serper.dev" target="_blank" rel="noopener noreferrer" className="text-dusty-rose underline">serper.dev</a>
+          </p>
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              value={keys["serper"] || ""}
+              onChange={(e) => setKeys({ ...keys, serper: e.target.value })}
+              placeholder="Enter Serper API key..."
+              className="bg-warm-ivory border-warm-taupe/40 rounded-lg text-sm"
+            />
+            <Button
+              onClick={() => {
+                const key = keys["serper"];
+                if (!key) { toast.error("Enter an API key first"); return; }
+                storeApiKey("serper", key, passphrase);
+                toast.success("Serper key saved — Research Enhancer now uses real web search!");
+              }}
+              size="sm"
+              className="bg-deep-espresso text-warm-ivory rounded-lg"
+            >
+              Save
+            </Button>
+            {hasApiKey("serper") && (
+              <Button
+                onClick={() => {
+                  removeApiKey("serper");
+                  setKeys({ ...keys, serper: "" });
+                  toast.success("Serper key removed");
+                }}
+                size="sm"
+                variant="outline"
+                className="border-red-300 text-red-500 rounded-lg"
+              >
+                <Trash2 size={12} />
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -35,6 +35,7 @@ function runToPin(run: RunRecord): Record<string, unknown> {
     id: run.id,
     created_at: run.created_at,
     updated_at: run.updated_at,
+    brand_id: (run.brand_snapshot as Record<string, unknown>)?.id || null,
     brand_snapshot: run.brand_snapshot,
     prompt_template: run.prompt_template,
     runtime_inputs: run.runtime_inputs,

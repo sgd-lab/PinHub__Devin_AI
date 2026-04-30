@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateBaseUrl } from "@/lib/ai/urlValidator";
 
+function buildTestHeaders(baseUrl: string, apiKey: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (baseUrl.includes("api.anthropic.com")) {
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  } else {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  return headers;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { baseUrl, apiKey } = await req.json();
@@ -14,17 +29,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: urlCheck.error }, { status: 403 });
     }
 
-    const response = await fetch(`${baseUrl}/models`, {
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-    });
+    const headers = buildTestHeaders(baseUrl, apiKey);
+
+    // Anthropic doesn't have a /models endpoint — do a lightweight completion test
+    if (baseUrl.includes("api.anthropic.com")) {
+      const response = await fetch(`${baseUrl}/messages`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          model: "claude-3-5-haiku-latest",
+          max_tokens: 5,
+          messages: [{ role: "user", content: "Hi" }],
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        return NextResponse.json({
+          success: false,
+          error: `HTTP ${response.status}: ${errorText}`,
+        });
+      }
+      return NextResponse.json({
+        success: true,
+        models: ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest", "claude-3-opus-latest"],
+      });
+    }
+
+    const response = await fetch(`${baseUrl}/models`, { headers });
 
     if (!response.ok) {
+      const errorText = await response.text();
       return NextResponse.json({
         success: false,
-        error: `HTTP ${response.status}: ${response.statusText}`,
+        error: `HTTP ${response.status}: ${errorText}`,
       });
     }
 

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
 import { AIErrorCard } from "@/components/ai/AIErrorCard";
 import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
+import { useBrandGate } from "@/lib/hooks/useBrandGate";
 
 export default function SinglePinGeneratorPage() {
   const { activeBrand } = useBrandStore();
@@ -27,6 +28,7 @@ export default function SinglePinGeneratorPage() {
     setCurrentRun, resetRun, setHoldForReview,
   } = useGeneratorStore();
   const { hasKey, checked } = useApiKeyGate();
+  const { ready: brandReady } = useBrandGate();
 
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [streaming, setStreaming] = useState(false);
@@ -35,7 +37,7 @@ export default function SinglePinGeneratorPage() {
   const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  if (!checked || !hasKey) return null;
+  if (!checked || !hasKey || !brandReady) return null;
 
   const handleGenerate = async () => {
     if (!activeBrand) {

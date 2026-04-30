@@ -12,10 +12,12 @@ const ERROR_PATTERNS: Array<{
   type: AIErrorInfo["errorType"];
   suggestion: string;
 }> = [
-  { pattern: /401|unauthorized|invalid.*key|authentication/i, type: "auth", suggestion: "Your API key is invalid or expired. Update it in Settings → API Keys." },
+  { pattern: /API key not valid|invalid.*api.*key/i, type: "auth", suggestion: "Your API key is invalid. For Gemini, get a key at aistudio.google.com/apikey (not Google Cloud Console). For OpenRouter, sign up at openrouter.ai." },
+  { pattern: /401|unauthorized|authentication/i, type: "auth", suggestion: "Your API key is invalid or expired. Update it in Settings → API Keys." },
   { pattern: /403|forbidden|access.*denied/i, type: "auth", suggestion: "Access denied. Check your API key permissions in Settings → API Keys." },
   { pattern: /429|rate.*limit|too many requests/i, type: "rate_limit", suggestion: "Rate limit exceeded. Wait a moment and try again, or switch providers." },
   { pattern: /quota.*exceeded|billing|insufficient.*funds|insufficient.*credit/i, type: "quota", suggestion: "API quota exceeded. Check your plan limits or switch to a free provider like Gemini." },
+  { pattern: /No endpoints found/i, type: "model", suggestion: "The model is not available on this provider. Try clearing your browser data for this site to get updated model defaults, or switch providers." },
   { pattern: /context.*length|token.*limit|too.*long|max.*token.*exceeded|context.*exceeded/i, type: "model", suggestion: "The request exceeded the model's token limit. Try reducing your prompt length or max tokens setting." },
   { pattern: /model.*not.*found|invalid.*model|does not exist/i, type: "model", suggestion: "The selected model is not available. Try a different model in Settings → API Keys." },
   { pattern: /fetch|network|ECONNREFUSED|ENOTFOUND|timeout|DNS/i, type: "network", suggestion: "Network error. Check your internet connection or verify the provider URL." },

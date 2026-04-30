@@ -3,6 +3,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+const SETTINGS_STORE_VERSION = 2;
+
 export interface ProviderConfig {
   name: "nvidia" | "openrouter" | "gemini" | "groq" | "anthropic" | "ollama" | "custom";
   base_url: string;
@@ -183,6 +185,25 @@ export const useSettingsStore = create<SettingsState>()(
       setAlerts: (alerts) =>
         set((s) => ({ alerts: { ...s.alerts, ...alerts } })),
     }),
-    { name: "pinhub-settings-store" }
+    {
+      name: "pinhub-settings-store",
+      version: SETTINGS_STORE_VERSION,
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>;
+        if (version < 2) {
+          const providers = state.providers as Record<string, ProviderConfig> | undefined;
+          if (providers) {
+            for (const [key, defaults] of Object.entries(PROVIDER_DEFAULTS)) {
+              if (providers[key]) {
+                providers[key].default_model = defaults.default_model as string;
+                providers[key].base_url = defaults.base_url as string;
+              }
+            }
+            state.providers = providers;
+          }
+        }
+        return state as unknown as SettingsState;
+      },
+    }
   )
 );

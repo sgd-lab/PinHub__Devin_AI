@@ -14,12 +14,14 @@ import { toast } from "sonner";
 import { parseAIError, type AIErrorInfo } from "@/lib/ai/aiErrorHandler";
 import { AIErrorCard } from "@/components/ai/AIErrorCard";
 import { useApiKeyGate } from "@/lib/hooks/useApiKeyGate";
+import { useBrandGate } from "@/lib/hooks/useBrandGate";
 
 export default function GuideGeneratorPage() {
   const { activeBrand } = useBrandStore();
   const { providers, defaultProvider } = useSettingsStore();
   const { temperature, maxTokens, holdForReview, setCurrentRun, resetRun } = useGeneratorStore();
   const { hasKey, checked } = useApiKeyGate();
+  const { ready: brandReady } = useBrandGate();
   const [guideTitle, setGuideTitle] = useState("");
   const [weekLabel, setWeekLabel] = useState("");
   const [monetization, setMonetization] = useState("Affiliate");
@@ -31,7 +33,7 @@ export default function GuideGeneratorPage() {
   const [aiError, setAiError] = useState<AIErrorInfo | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  if (!checked || !hasKey) return null;
+  if (!checked || !hasKey || !brandReady) return null;
 
   const handleGenerate = async () => {
     if (!activeBrand) { toast.error("No brand loaded"); return; }

@@ -1,6 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateBaseUrl } from "@/lib/ai/urlValidator";
 
+function buildHeaders(baseUrl: string, apiKey: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (baseUrl.includes("api.anthropic.com")) {
+    headers["x-api-key"] = apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  } else {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  if (baseUrl.includes("openrouter.ai")) {
+    headers["HTTP-Referer"] = "https://pinhub-one.vercel.app";
+    headers["X-Title"] = "PinHub Atelier";
+  }
+
+  return headers;
+}
+
+function buildEndpoint(baseUrl: string): string {
+  if (baseUrl.includes("api.anthropic.com")) {
+    return `${baseUrl}/messages`;
+  }
+  return `${baseUrl}/chat/completions`;
+}
+
+function buildRequestBody(
+  baseUrl: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  temperature: number,
+  max_tokens: number,
+  top_p: number,
+  stream: boolean
+): Record<string, unknown> {
+  if (baseUrl.includes("api.anthropic.com")) {
+    const systemMsg = messages.find((m) => m.role === "system");
+    const nonSystemMsgs = messages.filter((m) => m.role !== "system");
+    return {
+      model,
+      system: systemMsg?.content || "",
+      messages: nonSystemMsgs,
+      temperature,
+      max_tokens,
+      top_p,
+      stream,
+    };
+  }
+  return { model, messages, temperature, max_tokens, top_p, stream };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -15,13 +67,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: urlCheck.error }, { status: 403 });
     }
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const endpoint = buildEndpoint(baseUrl);
+    const headers = buildHeaders(baseUrl, apiKey);
+    const reqBody = buildRequestBody(baseUrl, model, messages, temperature, max_tokens, top_p, stream);
+
+    const response = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ model, messages, temperature, max_tokens, top_p, stream }),
+      headers,
+      body: JSON.stringify(reqBody),
     });
 
     if (!response.ok) {

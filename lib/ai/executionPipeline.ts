@@ -215,6 +215,7 @@ export async function executeGeneration(
   });
   if (pinError) {
     if (typeof window !== "undefined") console.warn("Failed to save pin to Supabase:", pinError.message);
+    throw new Error("Generated content could not be saved: " + pinError.message);
   }
 
   // Log cost

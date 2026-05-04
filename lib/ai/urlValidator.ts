@@ -11,6 +11,10 @@ const ALLOWED_HOSTS = [
   "api.mistral.ai",
   "api.perplexity.ai",
   "api.deepseek.com",
+  "api.x.ai",
+  "api.cohere.com",
+  "dashscope-intl.aliyuncs.com",
+  "dashscope.aliyuncs.com",
 ];
 
 // Ollama runs locally — allow localhost HTTP for local model serving

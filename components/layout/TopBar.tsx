@@ -1,13 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search, User, Sun, Moon, LogOut, Settings, HelpCircle, X } from "lucide-react";
 import { BrandSwitcher } from "./BrandSwitcher";
 import { useUIStore } from "@/stores/uiStore";
+import { toast } from "sonner";
 
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: "Welcome to PinHub!", body: "Your atelier workspace is ready. Start generating pins.", time: "Just now", read: false },
+    { id: 2, title: "Brand Profile Loaded", body: "Maya Sofia defaults have been applied.", time: "Today", read: false },
+    { id: 3, title: "Tip: Set up API Keys", body: "Configure Gemini or OpenRouter to start generating content.", time: "Today", read: false },
+  ]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -19,6 +25,15 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
 
   if (!open) return null;
 
+  const handleMarkAllRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    toast.success("All notifications marked as read");
+  };
+
+  const handleNotificationClick = (id: number) => {
+    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  };
+
   return (
     <div ref={ref} className="absolute right-16 top-12 w-80 bg-white/95 dark-panel border border-warm-taupe/30 rounded-lg shadow-lg z-50 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-warm-taupe/20">
@@ -26,24 +41,20 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
         <button onClick={onClose} className="p-1 hover:bg-cream-hover rounded"><X size={14} /></button>
       </div>
       <div className="max-h-64 overflow-y-auto">
-        <div className="px-4 py-3 border-b border-warm-taupe/10 hover:bg-cream-hover/50 cursor-pointer">
-          <p className="text-xs font-medium">Welcome to PinHub!</p>
-          <p className="text-[10px] text-charcoal mt-0.5">Your atelier workspace is ready. Start generating pins.</p>
-          <p className="text-[10px] text-warm-taupe mt-1">Just now</p>
-        </div>
-        <div className="px-4 py-3 border-b border-warm-taupe/10 hover:bg-cream-hover/50 cursor-pointer">
-          <p className="text-xs font-medium">Brand Profile Loaded</p>
-          <p className="text-[10px] text-charcoal mt-0.5">Maya Sofia defaults have been applied.</p>
-          <p className="text-[10px] text-warm-taupe mt-1">Today</p>
-        </div>
-        <div className="px-4 py-3 hover:bg-cream-hover/50 cursor-pointer">
-          <p className="text-xs font-medium">Tip: Set up API Keys</p>
-          <p className="text-[10px] text-charcoal mt-0.5">Configure NVIDIA or OpenRouter to start generating content.</p>
-          <p className="text-[10px] text-warm-taupe mt-1">Today</p>
-        </div>
+        {notifications.map((n) => (
+          <div
+            key={n.id}
+            onClick={() => handleNotificationClick(n.id)}
+            className={`px-4 py-3 border-b border-warm-taupe/10 hover:bg-cream-hover/50 cursor-pointer ${n.read ? "opacity-60" : ""}`}
+          >
+            <p className="text-xs font-medium">{n.title}</p>
+            <p className="text-[10px] text-charcoal mt-0.5">{n.body}</p>
+            <p className="text-[10px] text-warm-taupe mt-1">{n.time}</p>
+          </div>
+        ))}
       </div>
       <div className="px-4 py-2 border-t border-warm-taupe/20 text-center">
-        <button className="text-[10px] text-dusty-rose hover:underline">Mark all as read</button>
+        <button onClick={handleMarkAllRead} className="text-[10px] text-dusty-rose hover:underline">Mark all as read</button>
       </div>
     </div>
   );
@@ -51,6 +62,7 @@ function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => vo
 
 function UserMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { theme, setTheme } = useUIStore();
+  const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -66,8 +78,8 @@ function UserMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <div ref={ref} className="absolute right-4 top-12 w-56 bg-white/95 dark-panel border border-warm-taupe/30 rounded-lg shadow-lg z-50 overflow-hidden">
       <div className="px-4 py-3 border-b border-warm-taupe/20">
-        <p className="text-sm font-medium">Ahsan</p>
-        <p className="text-[10px] text-charcoal">Maya Sofia Atelier</p>
+        <p className="text-sm font-medium">PinHub User</p>
+        <p className="text-[10px] text-charcoal">Atelier Workspace</p>
       </div>
       <div className="py-1">
         <button
@@ -77,17 +89,26 @@ function UserMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
           {theme === "warm-ivory" ? <Moon size={14} /> : <Sun size={14} />}
           {theme === "warm-ivory" ? "Dark Mode" : "Light Mode"}
         </button>
-        <a href="/settings" className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-cream-hover">
+        <button
+          onClick={() => { router.push("/settings"); onClose(); }}
+          className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-cream-hover text-left"
+        >
           <Settings size={14} />
           Settings
-        </a>
-        <button className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-cream-hover text-left">
+        </button>
+        <button
+          onClick={() => { toast.info("Help & Support — Coming soon. Check docs or contact the developer."); onClose(); }}
+          className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-cream-hover text-left"
+        >
           <HelpCircle size={14} />
           Help & Support
         </button>
       </div>
       <div className="border-t border-warm-taupe/20 py-1">
-        <button className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-cream-hover text-left text-red-500">
+        <button
+          onClick={() => { toast.info("Sign Out — Authentication is not yet configured. This is a single-user workspace."); onClose(); }}
+          className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-cream-hover text-left text-red-500"
+        >
           <LogOut size={14} />
           Sign Out
         </button>

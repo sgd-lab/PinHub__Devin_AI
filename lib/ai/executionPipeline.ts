@@ -213,7 +213,10 @@ export async function executeGeneration(
     run_type: runRecord.run_type,
     metadata: {},
   });
-  if (pinError) throw new Error("Failed to save pin: " + pinError.message);
+  if (pinError) {
+    if (typeof window !== "undefined") console.warn("Failed to save pin to Supabase:", pinError.message);
+    throw new Error("Generated content could not be saved: " + pinError.message);
+  }
 
   // Log cost
   const { error: costError } = await supabase.from("cost_log").insert({

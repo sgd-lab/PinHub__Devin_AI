@@ -61,11 +61,11 @@ export default function OnboardingPage() {
   const handleTestGemini = async () => {
     if (!geminiKey) return;
     setGeminiStatus("testing");
-    storeApiKey("gemini", geminiKey, passphrase);
     const result = await testProviderConnection("gemini", geminiKey, "https://generativelanguage.googleapis.com/v1beta/openai");
     if (result.success) {
+      storeApiKey("gemini", geminiKey, passphrase);
       setGeminiStatus("success");
-      setProvider("gemini", { api_key_ref: "gemini", enabled: true });
+      setProvider("gemini", { api_key_ref: "gemini", enabled: true, validated: true });
       toast.success("Gemini connected successfully");
     } else {
       setGeminiStatus("error");
@@ -76,11 +76,11 @@ export default function OnboardingPage() {
   const handleTestNvidia = async () => {
     if (!nvidiaKey) return;
     setNvidiaStatus("testing");
-    storeApiKey("nvidia", nvidiaKey, passphrase);
     const result = await testProviderConnection("nvidia", nvidiaKey, "https://integrate.api.nvidia.com/v1");
     if (result.success) {
+      storeApiKey("nvidia", nvidiaKey, passphrase);
       setNvidiaStatus("success");
-      setProvider("nvidia", { api_key_ref: "nvidia", enabled: true });
+      setProvider("nvidia", { api_key_ref: "nvidia", enabled: true, validated: true });
       toast.success("NVIDIA connected successfully");
     } else {
       setNvidiaStatus("error");
@@ -91,11 +91,11 @@ export default function OnboardingPage() {
   const handleTestOpenRouter = async () => {
     if (!openrouterKey) return;
     setOpenrouterStatus("testing");
-    storeApiKey("openrouter", openrouterKey, passphrase);
     const result = await testProviderConnection("openrouter", openrouterKey, "https://openrouter.ai/api/v1");
     if (result.success) {
+      storeApiKey("openrouter", openrouterKey, passphrase);
       setOpenrouterStatus("success");
-      setProvider("openrouter", { api_key_ref: "openrouter", enabled: true });
+      setProvider("openrouter", { api_key_ref: "openrouter", enabled: true, validated: true });
       toast.success("OpenRouter connected successfully");
     } else {
       setOpenrouterStatus("error");

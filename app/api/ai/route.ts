@@ -25,6 +25,10 @@ function buildEndpoint(baseUrl: string): string {
   if (baseUrl.includes("api.anthropic.com")) {
     return `${baseUrl}/messages`;
   }
+  // Cohere v2 uses /chat endpoint
+  if (baseUrl.includes("api.cohere.com")) {
+    return `${baseUrl}/chat`;
+  }
   return `${baseUrl}/chat/completions`;
 }
 
@@ -37,6 +41,7 @@ function buildRequestBody(
   top_p: number,
   stream: boolean
 ): Record<string, unknown> {
+  // Anthropic format
   if (baseUrl.includes("api.anthropic.com")) {
     const systemMsg = messages.find((m) => m.role === "system");
     const nonSystemMsgs = messages.filter((m) => m.role !== "system");
@@ -50,6 +55,17 @@ function buildRequestBody(
       stream,
     };
   }
+  // Cohere v2 format (OpenAI-compatible with model + messages)
+  if (baseUrl.includes("api.cohere.com")) {
+    return {
+      model,
+      messages,
+      temperature,
+      max_tokens,
+      stream,
+    };
+  }
+  // OpenAI-compatible format (Gemini, OpenRouter, NVIDIA, Groq, xAI, DeepSeek, Mistral, Qwen)
   return { model, messages, temperature, max_tokens, top_p, stream };
 }
 

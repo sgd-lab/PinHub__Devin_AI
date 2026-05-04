@@ -73,7 +73,7 @@ export async function streamCompletion(options: StreamOptions): Promise<void> {
 
         try {
           const parsed = JSON.parse(data);
-          // OpenAI-compatible format (OpenRouter, Gemini, NVIDIA, Groq)
+          // OpenAI-compatible format (OpenRouter, Gemini, NVIDIA, Groq, DeepSeek, Mistral, xAI, Qwen)
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) {
             fullText += content;
@@ -84,8 +84,8 @@ export async function streamCompletion(options: StreamOptions): Promise<void> {
             fullText += parsed.delta.text;
             onToken(parsed.delta.text);
           }
-          // Usage from OpenAI-compatible
-          if (parsed.usage) {
+          // Usage from OpenAI-compatible (skip Anthropic events that have .type)
+          if (parsed.usage && !parsed.type) {
             inputTokens = parsed.usage.prompt_tokens || parsed.usage.input_tokens || 0;
             outputTokens = parsed.usage.completion_tokens || parsed.usage.output_tokens || 0;
           }
@@ -124,7 +124,7 @@ export function estimateCost(
 ): number {
   const costs: Record<string, { input: number; output: number }> = {
     default: { input: 0.5, output: 1.5 },
-    "claude-3.5-sonnet": { input: 3, output: 15 },
+    "claude-3-5-sonnet": { input: 3, output: 15 },
     "claude-3-haiku": { input: 0.25, output: 1.25 },
     "gpt-4o": { input: 2.5, output: 10 },
     "gpt-4o-mini": { input: 0.15, output: 0.6 },
@@ -137,6 +137,8 @@ export function estimateCost(
     "mistral": { input: 0.2, output: 0.6 },
     "deepseek": { input: 0.14, output: 0.28 },
     "qwen": { input: 0.15, output: 0.6 },
+    "grok": { input: 5, output: 15 },
+    "command-r": { input: 0.15, output: 0.6 },
   };
 
   const modelLower = model.toLowerCase();

@@ -76,9 +76,11 @@ function UserMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   }, [open, onClose]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email || null);
-    });
+    if (open) {
+      supabase.auth.getUser().then(({ data }) => {
+        setUserEmail(data.user?.email || null);
+      });
+    }
   }, [open]);
 
   if (!open) return null;

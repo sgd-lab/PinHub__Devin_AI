@@ -32,9 +32,12 @@ export async function updateSession(request: NextRequest) {
   // Allow access to login page and auth callback without authentication
   const isLoginPage = request.nextUrl.pathname === "/login";
   const isAuthCallback = request.nextUrl.pathname === "/auth/callback";
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
 
-  if (!user && !isLoginPage && !isAuthCallback && !isApiRoute) {
+  if (!user && !isLoginPage && !isAuthCallback) {
+    // Return 401 JSON for API routes instead of redirecting
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

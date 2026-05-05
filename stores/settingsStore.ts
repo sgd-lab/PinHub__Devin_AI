@@ -166,7 +166,7 @@ export const PROVIDER_DEFAULTS: Record<string, Partial<ProviderConfig>> = {
   qwen: {
     name: "qwen",
     base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-    default_model: "qwen-plus",
+    default_model: "qwen-turbo",
     max_tokens_default: 2000,
     temperature_default: 0.7,
     top_p_default: 0.9,

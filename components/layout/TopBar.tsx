@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search, User, Sun, Moon, LogOut, Settings, HelpCircle, X } from "lucide-react";
 import { BrandSwitcher } from "./BrandSwitcher";
 import { useUIStore } from "@/stores/uiStore";
+import { supabase } from "@/lib/db/supabase";
 import { toast } from "sonner";
 
 function NotificationPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -64,6 +65,7 @@ function UserMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { theme, setTheme } = useUIStore();
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -73,12 +75,18 @@ function UserMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open, onClose]);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email || null);
+    });
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <div ref={ref} className="absolute right-4 top-12 w-56 bg-white/95 dark-panel border border-warm-taupe/30 rounded-lg shadow-lg z-50 overflow-hidden">
       <div className="px-4 py-3 border-b border-warm-taupe/20">
-        <p className="text-sm font-medium">PinHub User</p>
+        <p className="text-sm font-medium">{userEmail || "PinHub User"}</p>
         <p className="text-[10px] text-charcoal">Atelier Workspace</p>
       </div>
       <div className="py-1">
@@ -106,7 +114,7 @@ function UserMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
       </div>
       <div className="border-t border-warm-taupe/20 py-1">
         <button
-          onClick={() => { toast.info("Sign Out — Authentication is not yet configured. This is a single-user workspace."); onClose(); }}
+          onClick={async () => { await supabase.auth.signOut(); router.push("/login"); onClose(); }}
           className="w-full flex items-center gap-2 px-4 py-2 text-xs hover:bg-cream-hover text-left text-red-500"
         >
           <LogOut size={14} />

@@ -5,6 +5,7 @@ import { runQCRules } from "@/lib/qc/ruleRunner";
 import { db, type RunRecord } from "@/lib/db/dexie";
 import type { BrandProfile } from "@/lib/brands/brandSchema";
 import type { PromptTemplate } from "@/lib/db/dexie";
+import type { AITaskKind } from "./providers/types";
 
 export type PipelineStage =
   | "assemble"
@@ -21,13 +22,12 @@ export interface PipelineConfig {
   brand: BrandProfile;
   template: PromptTemplate;
   runtimeInputs: Record<string, string>;
-  provider: {
-    name: string;
-    base_url: string;
-    api_key: string;
-    model: string;
-    fallback_model?: string;
-  };
+  /**
+   * AI task kind. Drives provider+model selection on the server side.
+   * The user's stored, encrypted key is decrypted in the API route — no
+   * provider credentials are passed from the client.
+   */
+  task: AITaskKind;
   temperature: number;
   maxTokens: number;
   niche: string;
@@ -57,7 +57,7 @@ export async function executeGeneration(
     brand,
     template,
     runtimeInputs,
-    provider,
+    task,
     temperature,
     maxTokens,
     niche,
@@ -99,7 +99,7 @@ export async function executeGeneration(
   onProgress(30);
 
   const estimatedInputTokens = estimateTokens(promptText);
-  estimateCost(estimatedInputTokens, maxTokens, provider.model);
+  estimateCost(estimatedInputTokens, maxTokens, "default");
 
   // Stage 4: Dispatch
   onStageChange("dispatch");
@@ -107,15 +107,15 @@ export async function executeGeneration(
 
   let rawResponse = "";
   let usage = { input_tokens: 0, output_tokens: 0 };
+  let resolvedProvider = "auto";
+  let resolvedModel = "auto";
 
   // Stage 5: Stream
   onStageChange("stream");
 
   await new Promise<void>((resolvePromise, reject) => {
     streamCompletion({
-      baseUrl: provider.base_url,
-      apiKey: provider.api_key,
-      model: provider.model,
+      task,
       messages: [
         {
           role: "system",
@@ -133,6 +133,10 @@ export async function executeGeneration(
           40 + (rawResponse.length / (maxTokens * 4)) * 40
         );
         onProgress(streamProgress);
+      },
+      onMeta: (m) => {
+        resolvedProvider = m.provider;
+        resolvedModel = m.model;
       },
       onComplete: () => resolvePromise(),
       onError: (err) => reject(err),
@@ -155,7 +159,7 @@ export async function executeGeneration(
 
   const qcResults = runQCRules(parsedFields, template.qc_rules, brand);
 
-  const cost = estimateCost(usage.input_tokens, usage.output_tokens, provider.model);
+  const cost = estimateCost(usage.input_tokens, usage.output_tokens, resolvedModel);
 
   // Stage 8: Store
   onStageChange("store");
@@ -171,8 +175,8 @@ export async function executeGeneration(
     raw_response: rawResponse,
     parsed_fields: parsedFields,
     qc_results: qcResults,
-    provider: provider.name,
-    model: provider.model,
+    provider: resolvedProvider,
+    model: resolvedModel,
     input_tokens: usage.input_tokens,
     output_tokens: usage.output_tokens,
     cost_estimate: cost,
@@ -190,8 +194,8 @@ export async function executeGeneration(
   await db.costLog.add({
     id: crypto.randomUUID(),
     date: new Date().toISOString().split("T")[0],
-    provider: provider.name,
-    model: provider.model,
+    provider: resolvedProvider,
+    model: resolvedModel,
     input_tokens: usage.input_tokens,
     output_tokens: usage.output_tokens,
     cost,

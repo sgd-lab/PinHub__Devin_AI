@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { Sparkles, Copy, Check, Save, Send, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useBrandStore } from "@/stores/brandStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { useGeneratorStore } from "@/stores/generatorStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
-import { retrieveApiKey } from "@/lib/encryption/keyStore";
 import { toast } from "sonner";
 
 export default function SinglePinGeneratorPage() {
   const { activeBrand } = useBrandStore();
-  const { providers, defaultProvider } = useSettingsStore();
   const {
     currentRun, temperature, maxTokens, selectedNiche, targetDate, itemOverride,
     seasonalNote, boardAssignment, researchAllowed, holdForReview,
@@ -24,9 +22,9 @@ export default function SinglePinGeneratorPage() {
     setCurrentRun, resetRun, setHoldForReview,
   } = useGeneratorStore();
 
-  const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
+  const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -36,20 +34,9 @@ export default function SinglePinGeneratorPage() {
       return;
     }
 
-    const provider = providers[selectedProvider];
-    if (!provider) {
-      toast.error("No provider selected");
-      return;
-    }
-
-    const apiKey = retrieveApiKey(selectedProvider, "pinhub-default-key");
-    if (!apiKey) {
-      toast.error("No API key configured. Go to Settings → API Keys.");
-      return;
-    }
-
     resetRun();
     setOutput("");
+    setResolvedProviderLabel(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -101,13 +88,7 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
           niche: selectedNiche === "auto" ? (activeBrand.niches[0]?.name || "") : selectedNiche,
           country_set: "US, CA, UK",
         },
-        provider: {
-          name: selectedProvider,
-          base_url: provider.base_url,
-          api_key: apiKey,
-          model: provider.default_model,
-          fallback_model: provider.fallback_model,
-        },
+        task: "pin",
         temperature,
         maxTokens,
         niche: selectedNiche === "auto" ? (activeBrand.niches[0]?.name || "") : selectedNiche,
@@ -124,6 +105,11 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
         },
         signal: abortRef.current.signal,
       });
+      if (result.runRecord.provider) {
+        setResolvedProviderLabel(
+          `${result.runRecord.provider} · ${result.runRecord.model}`
+        );
+      }
 
       setCurrentRun({
         status: "complete",
@@ -229,20 +215,17 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">AI Provider</Label>
-              <div className="flex gap-1.5">
-                {["nvidia", "openrouter"].map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setSelectedProvider(p)}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors uppercase ${
-                      selectedProvider === p
-                        ? "bg-deep-espresso text-warm-ivory"
-                        : "bg-warm-ivory border border-warm-taupe/40 text-charcoal hover:bg-cream-hover"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
+              <div className="text-xs text-charcoal bg-warm-ivory border border-warm-taupe/40 rounded-lg px-3 py-2">
+                Resolved server-side from your{" "}
+                <Link href="/settings/api-keys" className="underline">
+                  task assignments
+                </Link>
+                .
+                {resolvedProviderLabel && (
+                  <div className="mt-1 text-[11px] text-warm-taupe">
+                    Last run: {resolvedProviderLabel}
+                  </div>
+                )}
               </div>
             </div>
 

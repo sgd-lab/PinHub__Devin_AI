@@ -36,7 +36,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar } = useUIStore();
 
-  if (pathname === "/onboarding") return null;
+  if (
+    pathname === "/onboarding" ||
+    pathname === "/login" ||
+    pathname?.startsWith("/auth/")
+  ) {
+    return null;
+  }
 
   return (
     <aside

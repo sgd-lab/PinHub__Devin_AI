@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { TopBar } from "@/components/layout/TopBar";
-import { CostMeter } from "@/components/layout/CostMeter";
-import { CommandPalette } from "@/components/layout/CommandPalette";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { AppShell } from "@/components/layout/AppShell";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -22,7 +20,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "PinHub — Atelier Workspace",
-  description: "Private Pinterest Content OS for Maya Sofia",
+  description: "Personalized Pinterest Content OS",
 };
 
 export default function RootLayout({
@@ -34,18 +32,10 @@ export default function RootLayout({
     <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
       <body className="font-sans bg-warm-ivory text-deep-espresso antialiased">
         <TooltipProvider>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <TopBar />
-              <main className="flex-1 overflow-y-auto p-6">
-                {children}
-              </main>
-            </div>
-          </div>
-          <CostMeter />
-          <CommandPalette />
-          <Toaster />
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+            <Toaster />
+          </AuthProvider>
         </TooltipProvider>
       </body>
     </html>

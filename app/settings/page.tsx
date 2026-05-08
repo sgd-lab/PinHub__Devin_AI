@@ -5,6 +5,6 @@ import { useEffect } from "react";
 
 export default function SettingsPage() {
   const router = useRouter();
-  useEffect(() => { router.replace("/settings/api-keys"); }, [router]);
+  useEffect(() => { router.replace("/settings/profile"); }, [router]);
   return null;
 }

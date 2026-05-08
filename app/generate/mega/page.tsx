@@ -5,6 +5,7 @@ import { Zap, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useBrandStore } from "@/stores/brandStore";
+import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
 
 export default function MegaRunPage() {
   const { activeBrand } = useBrandStore();
@@ -23,6 +24,10 @@ export default function MegaRunPage() {
           </div>
           <h3 className="font-serif text-xl text-deep-espresso">Run Full Week</h3>
           <p className="text-charcoal">Generate all 21 pins (3 per day, 7 days) plus a weekly guide.</p>
+
+          <div className="text-left">
+            <ProviderTaskBadge task="pin" compact />
+          </div>
 
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div className="bg-warm-ivory rounded-lg p-3">

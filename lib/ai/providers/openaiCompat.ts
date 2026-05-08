@@ -129,10 +129,30 @@ export async function* streamProviderChat(
     if (res.status === 401 || res.status === 403) code = "invalid_key";
     else if (res.status === 404) code = "unsupported_model";
     else if (res.status === 408 || res.status === 504) code = "timeout";
+    else if (res.status === 429) code = "rate_limit";
     else if (res.status >= 500) code = "provider_error";
+    // Pull a concise error message out of the provider's JSON body when present.
+    let message = `HTTP ${res.status}`;
+    if (text) {
+      try {
+        const parsed = JSON.parse(text);
+        const candidate =
+          parsed?.error?.message ??
+          parsed?.error ??
+          parsed?.message ??
+          parsed?.detail;
+        if (typeof candidate === "string" && candidate.length > 0) {
+          message = candidate;
+        } else {
+          message = text;
+        }
+      } catch {
+        message = text;
+      }
+    }
     yield {
       type: "error",
-      message: text || `HTTP ${res.status}`,
+      message: `${provider.label}: ${message}`,
       code,
     };
     return;

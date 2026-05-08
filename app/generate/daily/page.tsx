@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
-import Link from "next/link";
+import { useState, useRef, useCallback } from "react";
 import { Sparkles, Copy, FileText, Calendar, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -10,6 +9,11 @@ import { Switch } from "@/components/ui/switch";
 import { useBrandStore } from "@/stores/brandStore";
 import { useGeneratorStore } from "@/stores/generatorStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
+import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
+import {
+  GenerationErrorBanner,
+  type GenerationErrorState,
+} from "@/components/ai/GenerationErrorBanner";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -20,6 +24,7 @@ export default function DailyProducerPage() {
   const [output, setOutput] = useState("");
   const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [countries, setCountries] = useState(["US", "CA", "UK"]);
+  const [genError, setGenError] = useState<GenerationErrorState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const today = new Date();
@@ -27,12 +32,13 @@ export default function DailyProducerPage() {
   const todayDay = format(today, "EEE") as "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
   const todayNiche = activeBrand?.niches.find((n) => n.rotation_days.includes(todayDay));
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!activeBrand) { toast.error("No brand loaded"); return; }
 
     resetRun();
     setOutput("");
     setResolvedProviderLabel(null);
+    setGenError(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -98,7 +104,14 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
         onStageChange: (stage) => setCurrentRun({ status: stage as never }),
         onToken: (token) => setOutput((prev) => prev + token),
         onProgress: (percent) => setCurrentRun({ progress: percent }),
-        onError: (error) => { toast.error(error.message); setStreaming(false); },
+        onError: (error) => {
+          const errAny = error as Error & { code?: string };
+          setGenError({
+            code: errAny.code || "internal_error",
+            message: error.message,
+          });
+          setStreaming(false);
+        },
         signal: abortRef.current.signal,
       });
       if (result.runRecord.provider) {
@@ -106,8 +119,26 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
       }
       setCurrentRun({ status: "complete", qcResults: result.qcResults, costEstimate: result.usage.cost, inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens });
       toast.success("3 pins generated!");
-    } catch (err) { toast.error(String(err)); } finally { setStreaming(false); }
-  };
+    } catch (err) {
+      setGenError({
+        code: "internal_error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setStreaming(false);
+    }
+  }, [
+    activeBrand,
+    countries,
+    temperature,
+    maxTokens,
+    targetDate,
+    holdForReview,
+    resetRun,
+    setCurrentRun,
+    todayNiche,
+    dayOfWeek,
+  ]);
 
   const handleCopyNanoBanana = (prompt: string) => {
     const text = `[FACE REFERENCE: ${activeBrand?.model_persona.nano_banana_face_reference}]\n${prompt}`;
@@ -137,14 +168,19 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">AI Provider</Label>
-              <div className="text-xs text-charcoal bg-warm-ivory border border-warm-taupe/40 rounded-lg px-3 py-2">
-                Resolved server-side from your{" "}
-                <Link href="/settings/api-keys" className="underline">task assignments</Link>.
-                {resolvedProviderLabel && (
-                  <div className="mt-1 text-[11px] text-warm-taupe">Last run: {resolvedProviderLabel}</div>
-                )}
-              </div>
+              <ProviderTaskBadge task="pin" lastRunLabel={resolvedProviderLabel} />
             </div>
+
+            {genError && (
+              <GenerationErrorBanner
+                error={genError}
+                onRetry={() => {
+                  setGenError(null);
+                  void handleGenerate();
+                }}
+                onDismiss={() => setGenError(null)}
+              />
+            )}
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">Temperature: {temperature.toFixed(2)}</Label>

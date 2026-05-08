@@ -18,6 +18,14 @@ interface ResolvedProvider {
   apiKey: string;
 }
 
+export interface ResolvedTaskInfo {
+  task: AITaskKind;
+  primary: { provider: ProviderId; model: string } | null;
+  fallback: { provider: ProviderId; model: string } | null;
+  /** Why no provider could be resolved at all. */
+  reason?: "no_keys" | "no_enabled_provider" | "ok";
+}
+
 interface PreferenceRow {
   task: AITaskKind;
   provider: string;
@@ -105,6 +113,95 @@ async function resolvePrimary(
   const apiKey = await loadKey(sb, userId, fallback.provider);
   if (!apiKey) return null;
   return { provider: fallback.provider, model: fallback.model, apiKey };
+}
+
+/**
+ * Returns what the chat route *would* pick for this task right now, without
+ * decrypting any keys or running a generation. Used by the generator UIs to
+ * display an accurate "Will use: <provider> · <model>" badge.
+ */
+export async function describeResolution(
+  sb: SupabaseClient,
+  userId: string,
+  task: AITaskKind
+): Promise<ResolvedTaskInfo> {
+  const [{ data: pref }, { data: enabledRows }, { data: keyRows }] =
+    await Promise.all([
+      sb
+        .from("user_model_preferences")
+        .select("task, provider, model, fallback_provider, fallback_model")
+        .eq("user_id", userId)
+        .eq("task", task)
+        .maybeSingle<PreferenceRow>(),
+      sb
+        .from("ai_provider_settings")
+        .select("provider, enabled, default_model")
+        .eq("user_id", userId)
+        .eq("enabled", true)
+        .order("updated_at", { ascending: false })
+        .returns<SettingsRow[]>(),
+      sb
+        .from("user_api_keys")
+        .select("provider")
+        .eq("user_id", userId)
+        .returns<{ provider: string }[]>(),
+    ]);
+
+  const haveKey = new Set(
+    (keyRows ?? []).map((r) => r.provider).filter(isProviderId)
+  );
+
+  if (haveKey.size === 0) {
+    return { task, primary: null, fallback: null, reason: "no_keys" };
+  }
+
+  let primary: { provider: ProviderId; model: string } | null = null;
+  if (pref && isProviderId(pref.provider) && haveKey.has(pref.provider)) {
+    primary = { provider: pref.provider, model: pref.model };
+  } else {
+    for (const row of enabledRows ?? []) {
+      if (!isProviderId(row.provider)) continue;
+      if (!haveKey.has(row.provider)) continue;
+      primary = {
+        provider: row.provider,
+        model:
+          row.default_model ?? PROVIDERS[row.provider].fallback_default_model,
+      };
+      break;
+    }
+  }
+
+  if (!primary) {
+    return { task, primary: null, fallback: null, reason: "no_enabled_provider" };
+  }
+
+  let fallback: { provider: ProviderId; model: string } | null = null;
+  if (
+    pref?.fallback_provider &&
+    pref.fallback_model &&
+    isProviderId(pref.fallback_provider) &&
+    pref.fallback_provider !== primary.provider &&
+    haveKey.has(pref.fallback_provider)
+  ) {
+    fallback = {
+      provider: pref.fallback_provider,
+      model: pref.fallback_model,
+    };
+  } else {
+    for (const row of enabledRows ?? []) {
+      if (!isProviderId(row.provider)) continue;
+      if (!haveKey.has(row.provider)) continue;
+      if (row.provider === primary.provider) continue;
+      fallback = {
+        provider: row.provider,
+        model:
+          row.default_model ?? PROVIDERS[row.provider].fallback_default_model,
+      };
+      break;
+    }
+  }
+
+  return { task, primary, fallback, reason: "ok" };
 }
 
 async function resolveBackup(

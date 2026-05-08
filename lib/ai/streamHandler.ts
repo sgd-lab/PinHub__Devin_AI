@@ -135,9 +135,13 @@ export async function streamCompletion(options: StreamOptions): Promise<void> {
               attempt: parsed.attempt,
             });
             break;
-          case "error":
-            onError(new Error(parsed.message ?? "Provider error"));
+          case "error": {
+            const err = new Error(parsed.message ?? "Provider error");
+            (err as Error & { code?: string }).code =
+              parsed.code ?? "provider_error";
+            onError(err);
             break;
+          }
           case "done":
             onComplete(fullText);
             return;

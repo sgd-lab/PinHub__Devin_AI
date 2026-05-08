@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { CostMeter } from "@/components/layout/CostMeter";
 import { CommandPalette } from "@/components/layout/CommandPalette";
+import { AssistantFab } from "@/components/assistant/AssistantFab";
 
 const FULL_BLEED_PATHS = ["/login", "/onboarding"];
 
@@ -30,6 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       <CostMeter />
       <CommandPalette />
+      <AssistantFab />
     </>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
-import Link from "next/link";
+import { useState, useRef, useCallback } from "react";
 import { Sparkles, Copy, Check, Save, Send, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { useBrandStore } from "@/stores/brandStore";
 import { useGeneratorStore } from "@/stores/generatorStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
+import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
+import {
+  GenerationErrorBanner,
+  type GenerationErrorState,
+} from "@/components/ai/GenerationErrorBanner";
 import { toast } from "sonner";
 
 export default function SinglePinGeneratorPage() {
@@ -26,9 +30,10 @@ export default function SinglePinGeneratorPage() {
   const [output, setOutput] = useState("");
   const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [genError, setGenError] = useState<GenerationErrorState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!activeBrand) {
       toast.error("No brand profile loaded");
       return;
@@ -37,6 +42,7 @@ export default function SinglePinGeneratorPage() {
     resetRun();
     setOutput("");
     setResolvedProviderLabel(null);
+    setGenError(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -100,7 +106,11 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
         onToken: (token) => setOutput((prev) => prev + token),
         onProgress: (percent) => setCurrentRun({ progress: percent }),
         onError: (error) => {
-          toast.error(error.message);
+          const errAny = error as Error & { code?: string };
+          setGenError({
+            code: errAny.code || "internal_error",
+            message: error.message,
+          });
           setStreaming(false);
         },
         signal: abortRef.current.signal,
@@ -122,11 +132,26 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
       toast.success("Pin generated successfully!");
     } catch (err) {
-      toast.error(String(err));
+      setGenError({
+        code: "internal_error",
+        message: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setStreaming(false);
     }
-  };
+  }, [
+    activeBrand,
+    selectedNiche,
+    targetDate,
+    itemOverride,
+    seasonalNote,
+    boardAssignment,
+    temperature,
+    maxTokens,
+    holdForReview,
+    resetRun,
+    setCurrentRun,
+  ]);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -215,19 +240,22 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">AI Provider</Label>
-              <div className="text-xs text-charcoal bg-warm-ivory border border-warm-taupe/40 rounded-lg px-3 py-2">
-                Resolved server-side from your{" "}
-                <Link href="/settings/api-keys" className="underline">
-                  task assignments
-                </Link>
-                .
-                {resolvedProviderLabel && (
-                  <div className="mt-1 text-[11px] text-warm-taupe">
-                    Last run: {resolvedProviderLabel}
-                  </div>
-                )}
-              </div>
+              <ProviderTaskBadge
+                task="pin"
+                lastRunLabel={resolvedProviderLabel}
+              />
             </div>
+
+            {genError && (
+              <GenerationErrorBanner
+                error={genError}
+                onRetry={() => {
+                  setGenError(null);
+                  void handleGenerate();
+                }}
+                onDismiss={() => setGenError(null)}
+              />
+            )}
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">

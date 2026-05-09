@@ -8,23 +8,30 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useBrandStore } from "@/stores/brandStore";
 import { useGeneratorStore } from "@/stores/generatorStore";
+import { useUserStore } from "@/stores/userStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
 import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
+import { OutputRatingControls } from "@/components/ai/OutputRatingControls";
 import {
   GenerationErrorBanner,
   type GenerationErrorState,
 } from "@/components/ai/GenerationErrorBanner";
+import { buildRatingSnippet } from "@/lib/ai/outputRatings";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function DailyProducerPage() {
   const { activeBrand } = useBrandStore();
+  const { preferences, memory } = useUserStore();
   const { temperature, maxTokens, targetDate, holdForReview, setTemperature, setCurrentRun, resetRun, setHoldForReview, currentRun } = useGeneratorStore();
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
   const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [countries, setCountries] = useState(["US", "CA", "UK"]);
   const [genError, setGenError] = useState<GenerationErrorState | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [lastRunSnippet, setLastRunSnippet] = useState<string>("");
+  const [lastRunNiche, setLastRunNiche] = useState<string>("");
   const abortRef = useRef<AbortController | null>(null);
 
   const today = new Date();
@@ -39,6 +46,9 @@ export default function DailyProducerPage() {
     setOutput("");
     setResolvedProviderLabel(null);
     setGenError(null);
+    setLastRunId(null);
+    setLastRunSnippet("");
+    setLastRunNiche("");
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -101,6 +111,8 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
         targetDate,
         runType: "daily",
         holdForReview,
+        personalization: { preferences, memory },
+        campaignIntent: `3-pin daily set (hero/detail/lifestyle) for ${dayOfWeek} in ${niche}, targeting ${countries.join(", ")}`,
         onStageChange: (stage) => setCurrentRun({ status: stage as never }),
         onToken: (token) => setOutput((prev) => prev + token),
         onProgress: (percent) => setCurrentRun({ progress: percent }),
@@ -117,6 +129,9 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
       if (result.runRecord.provider) {
         setResolvedProviderLabel(`${result.runRecord.provider} · ${result.runRecord.model}`);
       }
+      setLastRunId(result.runRecord.id);
+      setLastRunSnippet(buildRatingSnippet(result.parsedFields));
+      setLastRunNiche(niche);
       setCurrentRun({ status: "complete", qcResults: result.qcResults, costEstimate: result.usage.cost, inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens });
       toast.success("3 pins generated!");
     } catch (err) {
@@ -134,6 +149,8 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
     maxTokens,
     targetDate,
     holdForReview,
+    preferences,
+    memory,
     resetRun,
     setCurrentRun,
     todayNiche,
@@ -226,6 +243,19 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
                     </div>
                   );
                 })}
+                {currentRun.status === "complete" && lastRunId && (
+                  <div className="bg-warm-ivory/50 border border-warm-taupe/20 rounded-lg p-4">
+                    <OutputRatingControls
+                      runId={lastRunId}
+                      runType="daily"
+                      niche={lastRunNiche}
+                      snippet={lastRunSnippet}
+                    />
+                    <p className="text-[11px] text-warm-taupe mt-2">
+                      Ratings teach the contextual prompt what&apos;s working — favorites and successful runs are referenced in future generations; weak ones are avoided.
+                    </p>
+                  </div>
+                )}
                 {currentRun.status === "complete" && (
                   <div className="flex gap-2 flex-wrap">
                     <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg"><FileText size={14} className="mr-1" />Feed to Guide Generator</Button>

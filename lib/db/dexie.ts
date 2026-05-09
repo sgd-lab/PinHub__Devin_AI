@@ -34,6 +34,11 @@ export interface RunRecord {
   tags?: string[];
   guide_link?: string;
   run_type: "single" | "daily" | "mega" | "guide";
+  /**
+   * Creator's rating of this run, used by the contextual prompt assembler
+   * to bias future generations. Mirrors brand_memory(kind=rated_output).
+   */
+  rating?: "successful" | "weak" | "favorite" | null;
   metadata: Record<string, unknown>;
 }
 

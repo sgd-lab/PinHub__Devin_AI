@@ -22,6 +22,8 @@ export interface ChatStreamArgs {
   maxTokens: number;
   topP?: number;
   signal?: AbortSignal;
+  /** Provider-specific extras (e.g. Cloudflare account_id). */
+  metadata?: Record<string, unknown> | null;
 }
 
 /**
@@ -38,19 +40,35 @@ function buildHeaders(provider: ProviderInfo, apiKey: string): HeadersInit {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
   };
-  if (provider.id === "openrouter") {
-    headers["HTTP-Referer"] = "https://pinhub.app";
-    headers["X-Title"] = "PinHub";
+  if (provider.extra_headers_static) {
+    Object.assign(headers, provider.extra_headers_static);
   }
   return headers;
 }
 
+function resolveBaseUrl(
+  provider: ProviderInfo,
+  metadata: Record<string, unknown> | null | undefined
+): string {
+  let url = provider.base_url;
+  if (url.includes("{account_id}")) {
+    const accountId =
+      typeof metadata?.account_id === "string"
+        ? (metadata.account_id as string).trim()
+        : "";
+    url = url.replace("{account_id}", accountId || "MISSING_ACCOUNT_ID");
+  }
+  return url;
+}
+
 export async function validateProviderKey(
   provider: ProviderInfo,
-  apiKey: string
+  apiKey: string,
+  metadata?: Record<string, unknown> | null
 ): Promise<ValidateResult> {
   try {
-    const res = await fetch(`${provider.base_url}/models`, {
+    const baseUrl = resolveBaseUrl(provider, metadata);
+    const res = await fetch(`${baseUrl}/models`, {
       headers: buildHeaders(provider, apiKey),
     });
     if (!res.ok) {
@@ -101,7 +119,8 @@ export async function* streamProviderChat(
 ): AsyncGenerator<ChatChunk, void, unknown> {
   let res: Response;
   try {
-    res = await fetch(`${provider.base_url}/chat/completions`, {
+    const baseUrl = resolveBaseUrl(provider, args.metadata);
+    res = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: buildHeaders(provider, args.apiKey),
       body: JSON.stringify({

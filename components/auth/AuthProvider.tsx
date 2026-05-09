@@ -9,6 +9,27 @@ import { fetchBrandMemory } from "@/lib/auth/brandMemoryRepository";
 import { buildBrandProfileFromUser } from "@/lib/brands/userBrandAdapter";
 import { useUserStore } from "@/stores/userStore";
 import { useBrandStore } from "@/stores/brandStore";
+import type {
+  UserTaskPromptDTO,
+  UserTaskPromptKind,
+} from "@/lib/prompts/types";
+
+async function fetchUserTaskPrompts(): Promise<
+  Partial<Record<UserTaskPromptKind, UserTaskPromptDTO>>
+> {
+  try {
+    const res = await fetch("/api/prompts/tasks", { cache: "no-store" });
+    if (!res.ok) return {};
+    const json = (await res.json()) as { prompts?: UserTaskPromptDTO[] };
+    const map: Partial<Record<UserTaskPromptKind, UserTaskPromptDTO>> = {};
+    for (const p of json.prompts ?? []) {
+      map[p.task] = p;
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Loads the user's profile, preferences, and brand memory after Google login
@@ -23,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile,
     setPreferences,
     setMemory,
+    setTaskPrompts,
     setLoaded,
     setLoading,
     reset,
@@ -59,10 +81,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           avatarUrl: authAvatar,
         });
 
-        const [profile, prefs, memory] = await Promise.all([
+        const [profile, prefs, memory, taskPrompts] = await Promise.all([
           fetchUserProfile(authId),
           fetchUserPreferences(authId),
           fetchBrandMemory(authId),
+          fetchUserTaskPrompts(),
         ]);
 
         if (cancelled) return;
@@ -70,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(profile);
         setPreferences(prefs);
         setMemory(memory);
+        setTaskPrompts(taskPrompts);
 
         // Synthesize a BrandProfile from the user's data and seed the
         // legacy brandStore so existing pages keep working unchanged.

@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as {
     provider?: string;
     api_key?: string;
+    metadata?: Record<string, unknown>;
   } | null;
   if (
     !body ||
@@ -31,13 +32,19 @@ export async function POST(req: NextRequest) {
     typeof body.api_key !== "string"
   ) {
     return NextResponse.json(
-      { error: "Invalid request: { provider, api_key }" },
+      { error: "Invalid request: { provider, api_key, metadata? }" },
       { status: 400 }
     );
   }
 
   const provider = PROVIDERS[body.provider];
-  const result = await validateProviderKey(provider, body.api_key.trim());
+  const metadata =
+    body.metadata && typeof body.metadata === "object" ? body.metadata : null;
+  const result = await validateProviderKey(
+    provider,
+    body.api_key.trim(),
+    metadata
+  );
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: result.error ?? "Invalid key" },

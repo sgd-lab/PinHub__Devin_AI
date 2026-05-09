@@ -38,7 +38,7 @@ export interface PipelineConfig {
   niche: string;
   targetDate: string;
   board?: string;
-  runType: "single" | "daily" | "guide" | "mega";
+  runType: "single" | "daily" | "guide" | "mega" | "inspiration";
   holdForReview: boolean;
   /**
    * Optional creator personalization. When provided, the system prompt is
@@ -53,6 +53,12 @@ export interface PipelineConfig {
    * (e.g. "weekly guide for affiliate angle").
    */
   campaignIntent?: string;
+  /**
+   * Optional saved user-master prompt for this task. When provided, it is
+   * injected as a dedicated CREATOR'S MASTER PROMPT layer in the system
+   * prompt above the OUTPUT TYPE.
+   */
+  customUserPrompt?: string | null;
   onStageChange: (stage: PipelineStage) => void;
   onToken: (token: string) => void;
   onProgress: (percent: number) => void;
@@ -85,6 +91,7 @@ export async function executeGeneration(
     holdForReview,
     personalization,
     campaignIntent,
+    customUserPrompt,
     onStageChange,
     onToken,
     onProgress,
@@ -124,6 +131,7 @@ export async function executeGeneration(
     personalization: personalization ?? null,
     outputContract: promptText,
     campaignIntent,
+    customUserPrompt: customUserPrompt ?? null,
   });
 
   const systemContent = assembled.systemPrompt;
@@ -221,6 +229,8 @@ export async function executeGeneration(
     metadata: {
       contextual_prompt: {
         used_personalization: assembled.debugSummary.used_personalization,
+        used_custom_user_prompt:
+          assembled.debugSummary.used_custom_user_prompt,
         rated_outputs_used: assembled.debugSummary.rated_outputs_used,
         layer_lengths: assembled.debugSummary.layer_lengths,
         system_prompt: systemContent,

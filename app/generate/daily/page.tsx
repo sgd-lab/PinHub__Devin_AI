@@ -22,7 +22,7 @@ import { format } from "date-fns";
 
 export default function DailyProducerPage() {
   const { activeBrand } = useBrandStore();
-  const { preferences, memory } = useUserStore();
+  const { preferences, memory, taskPrompts } = useUserStore();
   const { temperature, maxTokens, targetDate, holdForReview, setTemperature, setCurrentRun, resetRun, setHoldForReview, currentRun } = useGeneratorStore();
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
@@ -112,6 +112,7 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
         runType: "daily",
         holdForReview,
         personalization: { preferences, memory },
+        customUserPrompt: taskPrompts.three_pins?.prompt_text ?? null,
         campaignIntent: `3-pin daily set (hero/detail/lifestyle) for ${dayOfWeek} in ${niche}, targeting ${countries.join(", ")}`,
         onStageChange: (stage) => setCurrentRun({ status: stage as never }),
         onToken: (token) => setOutput((prev) => prev + token),
@@ -151,6 +152,7 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
     holdForReview,
     preferences,
     memory,
+    taskPrompts,
     resetRun,
     setCurrentRun,
     todayNiche,

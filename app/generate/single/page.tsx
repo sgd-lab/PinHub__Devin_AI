@@ -9,16 +9,20 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useBrandStore } from "@/stores/brandStore";
 import { useGeneratorStore } from "@/stores/generatorStore";
+import { useUserStore } from "@/stores/userStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
 import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
+import { OutputRatingControls } from "@/components/ai/OutputRatingControls";
 import {
   GenerationErrorBanner,
   type GenerationErrorState,
 } from "@/components/ai/GenerationErrorBanner";
+import { buildRatingSnippet } from "@/lib/ai/outputRatings";
 import { toast } from "sonner";
 
 export default function SinglePinGeneratorPage() {
   const { activeBrand } = useBrandStore();
+  const { preferences, memory } = useUserStore();
   const {
     currentRun, temperature, maxTokens, selectedNiche, targetDate, itemOverride,
     seasonalNote, boardAssignment, researchAllowed, holdForReview,
@@ -31,6 +35,8 @@ export default function SinglePinGeneratorPage() {
   const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [genError, setGenError] = useState<GenerationErrorState | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [lastRunSnippet, setLastRunSnippet] = useState<string>("");
   const abortRef = useRef<AbortController | null>(null);
 
   const handleGenerate = useCallback(async () => {
@@ -43,6 +49,8 @@ export default function SinglePinGeneratorPage() {
     setOutput("");
     setResolvedProviderLabel(null);
     setGenError(null);
+    setLastRunId(null);
+    setLastRunSnippet("");
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -102,6 +110,10 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
         board: boardAssignment,
         runType: "single",
         holdForReview,
+        personalization: { preferences, memory },
+        campaignIntent: itemOverride
+          ? `Single pin highlighting ${itemOverride}${seasonalNote ? ` for ${seasonalNote}` : ""}`
+          : undefined,
         onStageChange: (stage) => setCurrentRun({ status: stage as never }),
         onToken: (token) => setOutput((prev) => prev + token),
         onProgress: (percent) => setCurrentRun({ progress: percent }),
@@ -120,6 +132,9 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
           `${result.runRecord.provider} · ${result.runRecord.model}`
         );
       }
+
+      setLastRunId(result.runRecord.id);
+      setLastRunSnippet(buildRatingSnippet(result.parsedFields));
 
       setCurrentRun({
         status: "complete",
@@ -149,6 +164,8 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
     temperature,
     maxTokens,
     holdForReview,
+    preferences,
+    memory,
     resetRun,
     setCurrentRun,
   ]);
@@ -388,6 +405,25 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* Rating */}
+                {currentRun.status === "complete" && lastRunId && (
+                  <div className="bg-warm-ivory/50 border border-warm-taupe/20 rounded-lg p-4">
+                    <OutputRatingControls
+                      runId={lastRunId}
+                      runType="single"
+                      niche={
+                        selectedNiche === "auto"
+                          ? activeBrand?.niches[0]?.name || ""
+                          : selectedNiche
+                      }
+                      snippet={lastRunSnippet}
+                    />
+                    <p className="text-[11px] text-warm-taupe mt-2">
+                      Ratings teach the contextual prompt what&apos;s working — favorites and successful runs are referenced in future generations; weak ones are avoided.
+                    </p>
                   </div>
                 )}
 

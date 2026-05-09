@@ -6,6 +6,11 @@ import { db, type RunRecord } from "@/lib/db/dexie";
 import type { BrandProfile } from "@/lib/brands/brandSchema";
 import type { PromptTemplate } from "@/lib/db/dexie";
 import type { AITaskKind } from "./providers/types";
+import {
+  assembleContextualPrompt,
+  type PersonalizationInputs,
+  type RunType as PromptRunType,
+} from "./contextualPromptAssembler";
 
 export type PipelineStage =
   | "assemble"
@@ -35,6 +40,19 @@ export interface PipelineConfig {
   board?: string;
   runType: "single" | "daily" | "guide" | "mega";
   holdForReview: boolean;
+  /**
+   * Optional creator personalization. When provided, the system prompt is
+   * built by `assembleContextualPrompt` (layered base brand → campaign →
+   * output type → emotional modifier + feedback signal). When omitted, the
+   * pipeline falls back to the legacy single-line system prompt for
+   * backwards compatibility.
+   */
+  personalization?: PersonalizationInputs | null;
+  /**
+   * Optional caller intent description used by the campaign layer
+   * (e.g. "weekly guide for affiliate angle").
+   */
+  campaignIntent?: string;
   onStageChange: (stage: PipelineStage) => void;
   onToken: (token: string) => void;
   onProgress: (percent: number) => void;
@@ -65,6 +83,8 @@ export async function executeGeneration(
     board,
     runType,
     holdForReview,
+    personalization,
+    campaignIntent,
     onStageChange,
     onToken,
     onProgress,
@@ -94,11 +114,26 @@ export async function executeGeneration(
 
   promptText = resolved;
 
+  // Build the layered contextual prompt. This becomes the system prompt;
+  // the resolved template text is appended to the user prompt so that any
+  // legacy variables / sections still reach the model.
+  const assembled = assembleContextualPrompt({
+    brand,
+    runType: runType as PromptRunType,
+    runtimeInputs,
+    personalization: personalization ?? null,
+    outputContract: promptText,
+    campaignIntent,
+  });
+
+  const systemContent = assembled.systemPrompt;
+  const userContent = `${assembled.userPrompt}\n\n---\n\n${promptText}`;
+
   // Stage 3: Pre-flight Check
   onStageChange("preflight");
   onProgress(30);
 
-  const estimatedInputTokens = estimateTokens(promptText);
+  const estimatedInputTokens = estimateTokens(systemContent + userContent);
   estimateCost(estimatedInputTokens, maxTokens, "default");
 
   // Stage 4: Dispatch
@@ -117,11 +152,8 @@ export async function executeGeneration(
     streamCompletion({
       task,
       messages: [
-        {
-          role: "system",
-          content: `You are the AI content engine for ${brand.identity.name}. Follow the brand voice and style guidelines precisely.`,
-        },
-        { role: "user", content: promptText },
+        { role: "system", content: systemContent },
+        { role: "user", content: userContent },
       ],
       temperature,
       maxTokens,
@@ -185,7 +217,16 @@ export async function executeGeneration(
     niche,
     target_date: targetDate,
     run_type: runType,
-    metadata: {},
+    rating: null,
+    metadata: {
+      contextual_prompt: {
+        used_personalization: assembled.debugSummary.used_personalization,
+        rated_outputs_used: assembled.debugSummary.rated_outputs_used,
+        layer_lengths: assembled.debugSummary.layer_lengths,
+        system_prompt: systemContent,
+        user_prompt: userContent,
+      },
+    },
   };
 
   await db.runs.add(runRecord);

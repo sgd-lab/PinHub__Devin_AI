@@ -12,11 +12,10 @@ import { AssistantPanel } from "./AssistantPanel";
  */
 export function AssistantFab() {
   const [open, setOpen] = useState(false);
-  const { authUser, profile, loaded } = useUserStore();
+  const { authUser, loaded } = useUserStore();
 
   if (!loaded) return null;
   if (!authUser) return null;
-  if (!profile?.onboarding_completed) return null;
 
   return (
     <>

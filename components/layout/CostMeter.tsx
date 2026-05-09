@@ -104,7 +104,18 @@ export function CostMeter() {
     };
   }, [authUser]);
 
-  if (!costMeterVisible) return null;
+  if (!costMeterVisible) {
+    return (
+      <button
+        onClick={toggleCostMeter}
+        title="Show AI usage"
+        aria-label="Show AI usage"
+        className="fixed bottom-24 right-4 z-40 w-9 h-9 rounded-full bg-white/95 backdrop-blur-sm border border-warm-taupe/30 shadow-sm hover:bg-cream-hover transition-colors flex items-center justify-center"
+      >
+        <Activity size={14} strokeWidth={1.5} className="text-deep-espresso" />
+      </button>
+    );
+  }
 
   const today = summary?.today ?? ZERO_BUCKET;
   const month = summary?.month ?? ZERO_BUCKET;

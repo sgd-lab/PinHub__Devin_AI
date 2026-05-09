@@ -112,7 +112,7 @@ export function CostMeter() {
     !summary && (localTodayCost > 0 || localMonthCost > 0);
 
   return (
-    <div className="fixed bottom-4 right-4 bg-white/95 backdrop-blur-sm border border-warm-taupe/30 rounded-lg p-3 shadow-sm z-50 min-w-[240px] max-w-[280px]">
+    <div className="fixed bottom-24 right-4 bg-white/95 backdrop-blur-sm border border-warm-taupe/30 rounded-lg p-3 shadow-sm z-40 min-w-[240px] max-w-[280px]">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5 text-xs font-medium text-charcoal uppercase tracking-wider">
           <Activity size={12} strokeWidth={1.5} />

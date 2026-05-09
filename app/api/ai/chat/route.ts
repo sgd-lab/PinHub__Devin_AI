@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { runChatStream } from "@/lib/ai/serverAi";
-import type { ChatMessage } from "@/lib/ai/providers/types";
+import { estimateProviderCost } from "@/lib/ai/usageCost";
+import type {
+  AITaskKind,
+  ChatMessage,
+  ProviderId,
+} from "@/lib/ai/providers/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,6 +81,13 @@ export async function POST(req: NextRequest) {
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let activeProvider: ProviderId | null = null;
+      let activeModel: string | null = null;
+      let attempt: "primary" | "fallback" = "primary";
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let didError = false;
+
       try {
         for await (const chunk of runChatStream({
           sb,
@@ -86,9 +98,20 @@ export async function POST(req: NextRequest) {
           maxTokens,
           signal: abortController.signal,
         })) {
+          if (chunk.type === "meta") {
+            activeProvider = chunk.provider;
+            activeModel = chunk.model;
+            attempt = chunk.attempt;
+          } else if (chunk.type === "usage") {
+            inputTokens = chunk.usage.input_tokens;
+            outputTokens = chunk.usage.output_tokens;
+          } else if (chunk.type === "error") {
+            didError = true;
+          }
           controller.enqueue(encoder.encode(sseEncode(chunk)));
         }
       } catch (e) {
+        didError = true;
         controller.enqueue(
           encoder.encode(
             sseEncode({
@@ -100,6 +123,36 @@ export async function POST(req: NextRequest) {
         );
       } finally {
         controller.close();
+
+        // Persist usage row if we got at least a provider + model. We log
+        // even if tokens are 0 (some providers omit usage), but skip when
+        // the entire run errored before any provider was resolved.
+        if (
+          activeProvider &&
+          activeModel &&
+          !(didError && inputTokens === 0 && outputTokens === 0)
+        ) {
+          const cost = estimateProviderCost(
+            activeProvider,
+            activeModel,
+            inputTokens,
+            outputTokens
+          );
+          try {
+            await sb.from("ai_usage_log").insert({
+              user_id: user.id,
+              task: body.task as AITaskKind,
+              provider: activeProvider,
+              model: activeModel,
+              input_tokens: inputTokens,
+              output_tokens: outputTokens,
+              cost_estimate: cost,
+              attempt,
+            });
+          } catch {
+            // never fail the response because of logging
+          }
+        }
       }
     },
     cancel() {

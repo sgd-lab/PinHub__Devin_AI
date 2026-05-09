@@ -32,7 +32,8 @@ export async function upsertUserKey(
   sb: SupabaseClient,
   userId: string,
   provider: ProviderId,
-  plaintextKey: string
+  plaintextKey: string,
+  metadata?: Record<string, unknown> | null
 ): Promise<{ ok: boolean; hint: string }> {
   const enc = encryptApiKey(plaintextKey);
   const hint = keyHint(plaintextKey);
@@ -46,10 +47,31 @@ export async function upsertUserKey(
       key_hint: hint,
       is_valid: true,
       last_validated_at: new Date().toISOString(),
+      metadata: metadata ?? {},
     },
     { onConflict: "user_id,provider" }
   );
   return { ok: !error, hint };
+}
+
+/**
+ * Returns provider metadata (e.g. Cloudflare account_id) so the API Keys UI
+ * can pre-fill the metadata fields when the user opens an existing key.
+ * Never returns the encrypted ciphertext or plaintext.
+ */
+export async function getUserKeyMetadata(
+  sb: SupabaseClient,
+  userId: string,
+  provider: ProviderId
+): Promise<Record<string, unknown> | null> {
+  const { data } = await sb
+    .from("user_api_keys")
+    .select("metadata")
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .maybeSingle<{ metadata: Record<string, unknown> | null }>();
+  if (!data) return null;
+  return data.metadata ?? {};
 }
 
 export async function deleteUserKey(

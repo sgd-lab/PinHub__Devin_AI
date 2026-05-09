@@ -16,6 +16,7 @@ interface ResolvedProvider {
   provider: ProviderId;
   model: string;
   apiKey: string;
+  metadata: Record<string, unknown> | null;
 }
 
 export interface ResolvedTaskInfo {
@@ -39,6 +40,12 @@ interface KeyRow {
   encrypted_key: string;
   iv: string;
   auth_tag: string;
+  metadata: Record<string, unknown> | null;
+}
+
+interface LoadedKey {
+  apiKey: string;
+  metadata: Record<string, unknown> | null;
 }
 
 interface SettingsRow {
@@ -51,20 +58,27 @@ async function loadKey(
   sb: SupabaseClient,
   userId: string,
   provider: ProviderId
-): Promise<string | null> {
+): Promise<LoadedKey | null> {
   const { data, error } = await sb
     .from("user_api_keys")
-    .select("provider, encrypted_key, iv, auth_tag")
+    .select("provider, encrypted_key, iv, auth_tag, metadata")
     .eq("user_id", userId)
     .eq("provider", provider)
     .maybeSingle<KeyRow>();
   if (error || !data) return null;
   try {
-    return decryptApiKey({
+    const apiKey = decryptApiKey({
       encrypted_key: data.encrypted_key,
       iv: data.iv,
       auth_tag: data.auth_tag,
     });
+    return {
+      apiKey,
+      metadata:
+        data.metadata && typeof data.metadata === "object"
+          ? data.metadata
+          : null,
+    };
   } catch {
     return null;
   }
@@ -102,17 +116,27 @@ async function resolvePrimary(
     .maybeSingle<PreferenceRow>();
 
   if (pref && isProviderId(pref.provider)) {
-    const apiKey = await loadKey(sb, userId, pref.provider);
-    if (apiKey) {
-      return { provider: pref.provider, model: pref.model, apiKey };
+    const loaded = await loadKey(sb, userId, pref.provider);
+    if (loaded) {
+      return {
+        provider: pref.provider,
+        model: pref.model,
+        apiKey: loaded.apiKey,
+        metadata: loaded.metadata,
+      };
     }
   }
 
   const fallback = await pickFallback(sb, userId);
   if (!fallback) return null;
-  const apiKey = await loadKey(sb, userId, fallback.provider);
-  if (!apiKey) return null;
-  return { provider: fallback.provider, model: fallback.model, apiKey };
+  const loaded = await loadKey(sb, userId, fallback.provider);
+  if (!loaded) return null;
+  return {
+    provider: fallback.provider,
+    model: fallback.model,
+    apiKey: loaded.apiKey,
+    metadata: loaded.metadata,
+  };
 }
 
 /**
@@ -224,21 +248,27 @@ async function resolveBackup(
     isProviderId(pref.fallback_provider) &&
     pref.fallback_provider !== excludeProvider
   ) {
-    const apiKey = await loadKey(sb, userId, pref.fallback_provider);
-    if (apiKey) {
+    const loaded = await loadKey(sb, userId, pref.fallback_provider);
+    if (loaded) {
       return {
         provider: pref.fallback_provider,
         model: pref.fallback_model,
-        apiKey,
+        apiKey: loaded.apiKey,
+        metadata: loaded.metadata,
       };
     }
   }
 
   const fallback = await pickFallback(sb, userId);
   if (!fallback || fallback.provider === excludeProvider) return null;
-  const apiKey = await loadKey(sb, userId, fallback.provider);
-  if (!apiKey) return null;
-  return { provider: fallback.provider, model: fallback.model, apiKey };
+  const loaded = await loadKey(sb, userId, fallback.provider);
+  if (!loaded) return null;
+  return {
+    provider: fallback.provider,
+    model: fallback.model,
+    apiKey: loaded.apiKey,
+    metadata: loaded.metadata,
+  };
 }
 
 async function markKeyInvalid(
@@ -313,6 +343,7 @@ export async function* runChatStream(
     temperature: args.temperature,
     maxTokens: args.maxTokens,
     signal: args.signal,
+    metadata: primary.metadata,
   })) {
     if (chunk.type === "error") {
       primaryErrorChunk = chunk;
@@ -369,6 +400,7 @@ export async function* runChatStream(
     temperature: args.temperature,
     maxTokens: args.maxTokens,
     signal: args.signal,
+    metadata: backup.metadata,
   })) {
     if (chunk.type === "error" && chunk.code === "invalid_key") {
       await markKeyInvalid(args.sb, args.userId, backup.provider);

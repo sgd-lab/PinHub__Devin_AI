@@ -76,6 +76,9 @@ export default function ApiKeysPage() {
   const [drafts, setDrafts] = useState<Record<ProviderId, string>>(
     {} as Record<ProviderId, string>
   );
+  const [metadataDrafts, setMetadataDrafts] = useState<
+    Record<ProviderId, Record<string, string>>
+  >({} as Record<ProviderId, Record<string, string>>);
   const [busy, setBusy] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -118,12 +121,32 @@ export default function ApiKeysPage() {
       toast.error("Enter an API key first");
       return;
     }
+    const info = PROVIDERS[provider];
+    const meta = metadataDrafts[provider] || {};
+    for (const field of info.metadata_fields ?? []) {
+      if (field.required && !(meta[field.key] || "").trim()) {
+        toast.error(`${field.label} is required for ${info.label}`);
+        return;
+      }
+    }
     setBusy(`save:${provider}`);
     try {
       const res = await fetch("/api/ai/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, api_key: value }),
+        body: JSON.stringify({
+          provider,
+          api_key: value,
+          metadata:
+            (info.metadata_fields ?? []).length > 0
+              ? Object.fromEntries(
+                  (info.metadata_fields ?? []).map((f) => [
+                    f.key,
+                    (meta[f.key] || "").trim(),
+                  ])
+                )
+              : undefined,
+        }),
       });
       const j = await res.json();
       if (!res.ok || !j.ok) {
@@ -146,12 +169,32 @@ export default function ApiKeysPage() {
       toast.error("Enter a key to test");
       return;
     }
+    const info = PROVIDERS[provider];
+    const meta = metadataDrafts[provider] || {};
+    for (const field of info.metadata_fields ?? []) {
+      if (field.required && !(meta[field.key] || "").trim()) {
+        toast.error(`${field.label} is required for ${info.label}`);
+        return;
+      }
+    }
     setBusy(`validate:${provider}`);
     try {
       const res = await fetch("/api/ai/keys/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, api_key: value }),
+        body: JSON.stringify({
+          provider,
+          api_key: value,
+          metadata:
+            (info.metadata_fields ?? []).length > 0
+              ? Object.fromEntries(
+                  (info.metadata_fields ?? []).map((f) => [
+                    f.key,
+                    (meta[f.key] || "").trim(),
+                  ])
+                )
+              : undefined,
+        }),
       });
       const j = await res.json();
       if (j.ok) {
@@ -392,6 +435,11 @@ export default function ApiKeysPage() {
                       Get a key <ExternalLink size={10} />
                     </a>
                   )}
+                  {info.free_tier_hint && !connected && (
+                    <span className="text-[10px] text-warm-taupe italic ml-1">
+                      {info.free_tier_hint}
+                    </span>
+                  )}
                   {connected && k && !k.is_valid && (
                     <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
                       Last call rejected — re-test or replace
@@ -408,6 +456,42 @@ export default function ApiKeysPage() {
                   />
                 </div>
               </div>
+
+              {(info.metadata_fields ?? []).length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {(info.metadata_fields ?? []).map((field) => (
+                    <div key={field.key}>
+                      <label className="block text-[11px] font-medium text-charcoal mb-1">
+                        {field.label}
+                        {field.required && (
+                          <span className="text-red-500 ml-0.5">*</span>
+                        )}
+                      </label>
+                      <Input
+                        type="text"
+                        value={metadataDrafts[id]?.[field.key] || ""}
+                        onChange={(e) =>
+                          setMetadataDrafts((d) => ({
+                            ...d,
+                            [id]: {
+                              ...(d[id] || {}),
+                              [field.key]: e.target.value,
+                            },
+                          }))
+                        }
+                        placeholder={field.placeholder}
+                        className="bg-warm-ivory border-warm-taupe/40 rounded-lg text-sm"
+                        autoComplete="off"
+                      />
+                      {field.hint && (
+                        <div className="text-[10px] text-warm-taupe mt-0.5">
+                          {field.hint}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex gap-2 mb-3">
                 <Input

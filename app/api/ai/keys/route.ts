@@ -60,10 +60,11 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as {
     provider?: string;
     api_key?: string;
+    metadata?: Record<string, unknown>;
   } | null;
   if (!body || !isProviderId(body.provider) || typeof body.api_key !== "string") {
     return NextResponse.json(
-      { error: "Invalid request: { provider, api_key }" },
+      { error: "Invalid request: { provider, api_key, metadata? }" },
       { status: 400 }
     );
   }
@@ -77,7 +78,25 @@ export async function POST(req: NextRequest) {
   }
 
   const provider = PROVIDERS[body.provider];
-  const validation = await validateProviderKey(provider, trimmedKey);
+  const metadata =
+    body.metadata && typeof body.metadata === "object" ? body.metadata : null;
+
+  // Enforce required provider-specific metadata fields (e.g. Cloudflare
+  // account_id) so we don't store an unusable key.
+  for (const field of provider.metadata_fields ?? []) {
+    if (
+      field.required &&
+      (typeof metadata?.[field.key] !== "string" ||
+        (metadata[field.key] as string).trim().length === 0)
+    ) {
+      return NextResponse.json(
+        { error: `${field.label} is required for ${provider.label}` },
+        { status: 400 }
+      );
+    }
+  }
+
+  const validation = await validateProviderKey(provider, trimmedKey, metadata);
   if (!validation.ok) {
     return NextResponse.json(
       {
@@ -87,7 +106,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const result = await upsertUserKey(ctx.sb, ctx.user.id, body.provider, trimmedKey);
+  const result = await upsertUserKey(
+    ctx.sb,
+    ctx.user.id,
+    body.provider,
+    trimmedKey,
+    metadata
+  );
   if (!result.ok) {
     return NextResponse.json(
       { error: "Failed to store API key" },

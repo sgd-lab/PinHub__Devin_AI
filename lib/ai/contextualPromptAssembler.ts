@@ -4,7 +4,7 @@ import type {
   UserPreferences,
 } from "@/lib/auth/types";
 
-export type RunType = "single" | "daily" | "guide" | "mega";
+export type RunType = "single" | "daily" | "guide" | "mega" | "inspiration";
 export type OutputRating = "successful" | "weak" | "favorite";
 
 export interface RatedOutputSnapshot {
@@ -36,6 +36,12 @@ export interface AssemblerInputs {
    * If omitted, the campaign layer is derived from runtimeInputs.
    */
   campaignIntent?: string;
+  /**
+   * Optional creator-authored master prompt for this task. When provided,
+   * it's injected as a dedicated CREATOR'S MASTER PROMPT layer above the
+   * OUTPUT TYPE so the brand voice and output contract still apply.
+   */
+  customUserPrompt?: string | null;
 }
 
 export interface AssembledLayers {
@@ -44,6 +50,7 @@ export interface AssembledLayers {
   outputType: string;
   emotionalModifier: string;
   feedbackSignal: string | null;
+  customUserPrompt: string | null;
 }
 
 export interface AssembledPrompt {
@@ -52,6 +59,7 @@ export interface AssembledPrompt {
   layers: AssembledLayers;
   debugSummary: {
     used_personalization: boolean;
+    used_custom_user_prompt: boolean;
     rated_outputs_used: {
       successful: number;
       favorite: number;
@@ -188,6 +196,8 @@ function describeRunType(runType: RunType): string {
       return "long-form weekly Pinterest content guide with hook, story, concepts, hook lines, and CTA";
     case "mega":
       return "weeklong batch of pins + guide";
+    case "inspiration":
+      return "inspiration pin (mood / direction reference) — short, evocative, image-led concept for the active niche";
     default:
       return runType;
   }
@@ -403,6 +413,7 @@ export function assembleContextualPrompt(
     personalization,
     outputContract,
     campaignIntent,
+    customUserPrompt,
   } = inputs;
 
   const baseBrand = buildBaseBrandLayer(brand);
@@ -419,6 +430,17 @@ export function assembleContextualPrompt(
     personalization?.memory ?? []
   );
 
+  const trimmedCustom = customUserPrompt?.trim() ?? "";
+  const customLayer =
+    trimmedCustom.length > 0
+      ? [
+          "## CREATOR'S MASTER PROMPT",
+          "This is the creator's saved master prompt for this task. Treat it as the highest-priority creative direction; the BASE BRAND and OUTPUT TYPE still constrain format and brand identity.",
+          "",
+          trimmedCustom,
+        ].join("\n")
+      : null;
+
   const rated = readRatedOutputs(personalization?.memory ?? []);
   const activeNiche = pickActiveNiche(brand, runtimeInputs.niche)?.name;
   const { layer: feedbackSignal, counts } = buildFeedbackSignalLayer(
@@ -429,10 +451,11 @@ export function assembleContextualPrompt(
   const systemSections: Array<string | null> = [
     `You are the AI content engine for ${brand.identity.name || "this creator's brand"}. ` +
       `You are a brand-aware creative strategist, not a generic writer. ` +
-      `Layer the BASE BRAND, CAMPAIGN, OUTPUT TYPE, and EMOTIONAL MODIFIER sections below to produce ` +
-      `output that sounds unmistakably like this creator. Honor the OUTPUT TYPE format exactly.`,
+      `Layer the BASE BRAND, CAMPAIGN, CREATOR'S MASTER PROMPT (if present), OUTPUT TYPE, and EMOTIONAL MODIFIER sections below ` +
+      `to produce output that sounds unmistakably like this creator. Honor the OUTPUT TYPE format exactly.`,
     section("", baseBrand),
     section("", campaign),
+    customLayer,
     section("", outputType),
     section("", emotionalModifier),
     feedbackSignal,
@@ -458,9 +481,11 @@ export function assembleContextualPrompt(
       outputType,
       emotionalModifier,
       feedbackSignal,
+      customUserPrompt: customLayer,
     },
     debugSummary: {
       used_personalization: Boolean(personalization),
+      used_custom_user_prompt: Boolean(customLayer),
       rated_outputs_used: counts,
       layer_lengths: {
         baseBrand: baseBrand.length,
@@ -468,6 +493,7 @@ export function assembleContextualPrompt(
         outputType: outputType.length,
         emotionalModifier: emotionalModifier.length,
         feedbackSignal: feedbackSignal?.length ?? 0,
+        customUserPrompt: customLayer?.length ?? 0,
       },
     },
   };

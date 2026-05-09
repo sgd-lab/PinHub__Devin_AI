@@ -28,7 +28,8 @@ export type BrandMemoryKind =
   | "rejected_output"
   | "hook_style"
   | "keyword"
-  | "forbidden";
+  | "forbidden"
+  | "rated_output";
 
 export interface BrandMemoryEntry {
   id: string;

@@ -7,12 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { useBrandStore } from "@/stores/brandStore";
+import { useUserStore } from "@/stores/userStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
 import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
+import { OutputRatingControls } from "@/components/ai/OutputRatingControls";
 import {
   GenerationErrorBanner,
   type GenerationErrorState,
 } from "@/components/ai/GenerationErrorBanner";
+import { buildRatingSnippet } from "@/lib/ai/outputRatings";
 import { toast } from "sonner";
 
 const MONETIZATION_ANGLES = ["Affiliate", "Brand Deal", "Community"] as const;
@@ -20,6 +23,7 @@ type Angle = (typeof MONETIZATION_ANGLES)[number];
 
 export default function GuideGeneratorPage() {
   const { activeBrand } = useBrandStore();
+  const { preferences, memory } = useUserStore();
   const [guideTitle, setGuideTitle] = useState("");
   const [weekLabel, setWeekLabel] = useState("");
   const [angle, setAngle] = useState<Angle>("Affiliate");
@@ -29,6 +33,9 @@ export default function GuideGeneratorPage() {
   const [progress, setProgress] = useState(0);
   const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [genError, setGenError] = useState<GenerationErrorState | null>(null);
+  const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [lastRunSnippet, setLastRunSnippet] = useState<string>("");
+  const [lastRunNiche, setLastRunNiche] = useState<string>("");
   const abortRef = useRef<AbortController | null>(null);
 
   const handleGenerate = useCallback(async () => {
@@ -41,6 +48,9 @@ export default function GuideGeneratorPage() {
     setProgress(0);
     setResolvedProviderLabel(null);
     setGenError(null);
+    setLastRunId(null);
+    setLastRunSnippet("");
+    setLastRunNiche("");
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -108,6 +118,8 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
         targetDate: new Date().toISOString().slice(0, 10),
         runType: "guide",
         holdForReview: false,
+        personalization: { preferences, memory },
+        campaignIntent: `Weekly long-form guide "${title}" with ${angle} monetization angle`,
         onStageChange: () => {},
         onToken: (token) => setOutput((prev) => prev + token),
         onProgress: (percent) => setProgress(percent),
@@ -126,6 +138,9 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
           `${result.runRecord.provider} · ${result.runRecord.model}`
         );
       }
+      setLastRunId(result.runRecord.id);
+      setLastRunSnippet(buildRatingSnippet(result.parsedFields));
+      setLastRunNiche(activeBrand.niches[0]?.name || "");
       toast.success("Guide generated!");
     } catch (err) {
       setGenError({
@@ -135,7 +150,7 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
     } finally {
       setStreaming(false);
     }
-  }, [activeBrand, guideTitle, weekLabel, angle, temperature]);
+  }, [activeBrand, guideTitle, weekLabel, angle, temperature, preferences, memory]);
 
   const handleStop = () => {
     abortRef.current?.abort();
@@ -260,6 +275,19 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
               </div>
             )}
           </div>
+          {output && lastRunId && !streaming && (
+            <div className="bg-warm-ivory/50 border border-warm-taupe/20 rounded-lg p-4">
+              <OutputRatingControls
+                runId={lastRunId}
+                runType="guide"
+                niche={lastRunNiche}
+                snippet={lastRunSnippet}
+              />
+              <p className="text-[11px] text-warm-taupe mt-2">
+                Ratings teach the contextual prompt what&apos;s working — favorites and successful runs are referenced in future generations; weak ones are avoided.
+              </p>
+            </div>
+          )}
           {output && (
             <div className="flex gap-2">
               <Button

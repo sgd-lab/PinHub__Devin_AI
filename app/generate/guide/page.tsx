@@ -23,7 +23,7 @@ type Angle = (typeof MONETIZATION_ANGLES)[number];
 
 export default function GuideGeneratorPage() {
   const { activeBrand } = useBrandStore();
-  const { preferences, memory } = useUserStore();
+  const { preferences, memory, taskPrompts } = useUserStore();
   const [guideTitle, setGuideTitle] = useState("");
   const [weekLabel, setWeekLabel] = useState("");
   const [angle, setAngle] = useState<Angle>("Affiliate");
@@ -119,6 +119,7 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
         runType: "guide",
         holdForReview: false,
         personalization: { preferences, memory },
+        customUserPrompt: taskPrompts.guide?.prompt_text ?? null,
         campaignIntent: `Weekly long-form guide "${title}" with ${angle} monetization angle`,
         onStageChange: () => {},
         onToken: (token) => setOutput((prev) => prev + token),
@@ -150,7 +151,7 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
     } finally {
       setStreaming(false);
     }
-  }, [activeBrand, guideTitle, weekLabel, angle, temperature, preferences, memory]);
+  }, [activeBrand, guideTitle, weekLabel, angle, temperature, preferences, memory, taskPrompts]);
 
   const handleStop = () => {
     abortRef.current?.abort();

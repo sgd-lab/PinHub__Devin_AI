@@ -33,7 +33,7 @@ export interface RunRecord {
   notes?: string;
   tags?: string[];
   guide_link?: string;
-  run_type: "single" | "daily" | "mega" | "guide";
+  run_type: "single" | "daily" | "mega" | "guide" | "inspiration";
   /**
    * Creator's rating of this run, used by the contextual prompt assembler
    * to bias future generations. Mirrors brand_memory(kind=rated_output).

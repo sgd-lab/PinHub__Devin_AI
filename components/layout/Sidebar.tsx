@@ -15,6 +15,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Lightbulb,
 } from "lucide-react";
 import { useUIStore } from "@/stores/uiStore";
 import { cn } from "@/lib/utils";
@@ -22,13 +23,14 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, shortcut: "1" },
   { href: "/generate/single", label: "Generate", icon: Sparkles, shortcut: "2" },
-  { href: "/library", label: "Content Library", icon: Library, shortcut: "3" },
-  { href: "/calendar", label: "Content Calendar", icon: Calendar, shortcut: "4" },
-  { href: "/brands", label: "Brand Profiles", icon: Palette, shortcut: "5" },
-  { href: "/prompts", label: "Prompt Studio", icon: FileText, shortcut: "6" },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, shortcut: "7" },
-  { href: "/automation", label: "Automation Hub", icon: Zap, shortcut: "8" },
-  { href: "/export", label: "Export Center", icon: Download, shortcut: "9" },
+  { href: "/generate/inspiration", label: "Inspiration", icon: Lightbulb, shortcut: "3" },
+  { href: "/library", label: "Content Library", icon: Library, shortcut: "4" },
+  { href: "/calendar", label: "Content Calendar", icon: Calendar, shortcut: "5" },
+  { href: "/brands", label: "Brand Profiles", icon: Palette, shortcut: "6" },
+  { href: "/prompts", label: "Prompt Studio", icon: FileText, shortcut: "7" },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, shortcut: "8" },
+  { href: "/automation", label: "Automation Hub", icon: Zap, shortcut: "9" },
+  { href: "/export", label: "Export Center", icon: Download },
   { href: "/settings", label: "Settings", icon: Settings, shortcut: "0" },
 ];
 

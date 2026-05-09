@@ -22,7 +22,7 @@ import { toast } from "sonner";
 
 export default function SinglePinGeneratorPage() {
   const { activeBrand } = useBrandStore();
-  const { preferences, memory } = useUserStore();
+  const { preferences, memory, taskPrompts } = useUserStore();
   const {
     currentRun, temperature, maxTokens, selectedNiche, targetDate, itemOverride,
     seasonalNote, boardAssignment, researchAllowed, holdForReview,
@@ -111,6 +111,7 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
         runType: "single",
         holdForReview,
         personalization: { preferences, memory },
+        customUserPrompt: taskPrompts.single_pin?.prompt_text ?? null,
         campaignIntent: itemOverride
           ? `Single pin highlighting ${itemOverride}${seasonalNote ? ` for ${seasonalNote}` : ""}`
           : undefined,
@@ -166,6 +167,7 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
     holdForReview,
     preferences,
     memory,
+    taskPrompts,
     resetRun,
     setCurrentRun,
   ]);

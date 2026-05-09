@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Sparkles, Copy, Check, Save, Send, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useBrandStore } from "@/stores/brandStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { useGeneratorStore } from "@/stores/generatorStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
-import { retrieveApiKey } from "@/lib/encryption/keyStore";
+import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
+import {
+  GenerationErrorBanner,
+  type GenerationErrorState,
+} from "@/components/ai/GenerationErrorBanner";
 import { toast } from "sonner";
 
 export default function SinglePinGeneratorPage() {
   const { activeBrand } = useBrandStore();
-  const { providers, defaultProvider } = useSettingsStore();
   const {
     currentRun, temperature, maxTokens, selectedNiche, targetDate, itemOverride,
     seasonalNote, boardAssignment, researchAllowed, holdForReview,
@@ -24,32 +26,23 @@ export default function SinglePinGeneratorPage() {
     setCurrentRun, resetRun, setHoldForReview,
   } = useGeneratorStore();
 
-  const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
+  const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [genError, setGenError] = useState<GenerationErrorState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!activeBrand) {
       toast.error("No brand profile loaded");
       return;
     }
 
-    const provider = providers[selectedProvider];
-    if (!provider) {
-      toast.error("No provider selected");
-      return;
-    }
-
-    const apiKey = retrieveApiKey(selectedProvider, "pinhub-default-key");
-    if (!apiKey) {
-      toast.error("No API key configured. Go to Settings → API Keys.");
-      return;
-    }
-
     resetRun();
     setOutput("");
+    setResolvedProviderLabel(null);
+    setGenError(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -101,13 +94,7 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
           niche: selectedNiche === "auto" ? (activeBrand.niches[0]?.name || "") : selectedNiche,
           country_set: "US, CA, UK",
         },
-        provider: {
-          name: selectedProvider,
-          base_url: provider.base_url,
-          api_key: apiKey,
-          model: provider.default_model,
-          fallback_model: provider.fallback_model,
-        },
+        task: "pin",
         temperature,
         maxTokens,
         niche: selectedNiche === "auto" ? (activeBrand.niches[0]?.name || "") : selectedNiche,
@@ -119,11 +106,20 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
         onToken: (token) => setOutput((prev) => prev + token),
         onProgress: (percent) => setCurrentRun({ progress: percent }),
         onError: (error) => {
-          toast.error(error.message);
+          const errAny = error as Error & { code?: string };
+          setGenError({
+            code: errAny.code || "internal_error",
+            message: error.message,
+          });
           setStreaming(false);
         },
         signal: abortRef.current.signal,
       });
+      if (result.runRecord.provider) {
+        setResolvedProviderLabel(
+          `${result.runRecord.provider} · ${result.runRecord.model}`
+        );
+      }
 
       setCurrentRun({
         status: "complete",
@@ -136,11 +132,26 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
       toast.success("Pin generated successfully!");
     } catch (err) {
-      toast.error(String(err));
+      setGenError({
+        code: "internal_error",
+        message: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setStreaming(false);
     }
-  };
+  }, [
+    activeBrand,
+    selectedNiche,
+    targetDate,
+    itemOverride,
+    seasonalNote,
+    boardAssignment,
+    temperature,
+    maxTokens,
+    holdForReview,
+    resetRun,
+    setCurrentRun,
+  ]);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -229,22 +240,22 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">AI Provider</Label>
-              <div className="flex gap-1.5">
-                {["nvidia", "openrouter"].map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setSelectedProvider(p)}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors uppercase ${
-                      selectedProvider === p
-                        ? "bg-deep-espresso text-warm-ivory"
-                        : "bg-warm-ivory border border-warm-taupe/40 text-charcoal hover:bg-cream-hover"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
+              <ProviderTaskBadge
+                task="pin"
+                lastRunLabel={resolvedProviderLabel}
+              />
             </div>
+
+            {genError && (
+              <GenerationErrorBanner
+                error={genError}
+                onRetry={() => {
+                  setGenError(null);
+                  void handleGenerate();
+                }}
+                onDismiss={() => setGenError(null)}
+              />
+            )}
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">

@@ -1,27 +1,30 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Sparkles, Copy, FileText, Calendar, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useBrandStore } from "@/stores/brandStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { useGeneratorStore } from "@/stores/generatorStore";
 import { executeGeneration } from "@/lib/ai/executionPipeline";
-import { retrieveApiKey } from "@/lib/encryption/keyStore";
+import { ProviderTaskBadge } from "@/components/ai/ProviderTaskBadge";
+import {
+  GenerationErrorBanner,
+  type GenerationErrorState,
+} from "@/components/ai/GenerationErrorBanner";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
 export default function DailyProducerPage() {
   const { activeBrand } = useBrandStore();
-  const { providers, defaultProvider } = useSettingsStore();
   const { temperature, maxTokens, targetDate, holdForReview, setTemperature, setCurrentRun, resetRun, setHoldForReview, currentRun } = useGeneratorStore();
-  const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [streaming, setStreaming] = useState(false);
   const [output, setOutput] = useState("");
+  const [resolvedProviderLabel, setResolvedProviderLabel] = useState<string | null>(null);
   const [countries, setCountries] = useState(["US", "CA", "UK"]);
+  const [genError, setGenError] = useState<GenerationErrorState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const today = new Date();
@@ -29,14 +32,13 @@ export default function DailyProducerPage() {
   const todayDay = format(today, "EEE") as "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
   const todayNiche = activeBrand?.niches.find((n) => n.rotation_days.includes(todayDay));
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     if (!activeBrand) { toast.error("No brand loaded"); return; }
-    const provider = providers[selectedProvider];
-    const apiKey = retrieveApiKey(selectedProvider, "pinhub-default-key");
-    if (!apiKey) { toast.error("No API key configured"); return; }
 
     resetRun();
     setOutput("");
+    setResolvedProviderLabel(null);
+    setGenError(null);
     setStreaming(true);
     abortRef.current = new AbortController();
 
@@ -92,7 +94,7 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
           updated_at: new Date().toISOString(),
         },
         runtimeInputs: { niche, country_set: countries.join(", ") },
-        provider: { name: selectedProvider, base_url: provider.base_url, api_key: apiKey, model: provider.default_model },
+        task: "pin",
         temperature,
         maxTokens: Math.max(maxTokens, 4000),
         niche,
@@ -102,13 +104,41 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
         onStageChange: (stage) => setCurrentRun({ status: stage as never }),
         onToken: (token) => setOutput((prev) => prev + token),
         onProgress: (percent) => setCurrentRun({ progress: percent }),
-        onError: (error) => { toast.error(error.message); setStreaming(false); },
+        onError: (error) => {
+          const errAny = error as Error & { code?: string };
+          setGenError({
+            code: errAny.code || "internal_error",
+            message: error.message,
+          });
+          setStreaming(false);
+        },
         signal: abortRef.current.signal,
       });
+      if (result.runRecord.provider) {
+        setResolvedProviderLabel(`${result.runRecord.provider} · ${result.runRecord.model}`);
+      }
       setCurrentRun({ status: "complete", qcResults: result.qcResults, costEstimate: result.usage.cost, inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens });
       toast.success("3 pins generated!");
-    } catch (err) { toast.error(String(err)); } finally { setStreaming(false); }
-  };
+    } catch (err) {
+      setGenError({
+        code: "internal_error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setStreaming(false);
+    }
+  }, [
+    activeBrand,
+    countries,
+    temperature,
+    maxTokens,
+    targetDate,
+    holdForReview,
+    resetRun,
+    setCurrentRun,
+    todayNiche,
+    dayOfWeek,
+  ]);
 
   const handleCopyNanoBanana = (prompt: string) => {
     const text = `[FACE REFERENCE: ${activeBrand?.model_persona.nano_banana_face_reference}]\n${prompt}`;
@@ -138,12 +168,19 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">AI Provider</Label>
-              <div className="flex gap-1.5">
-                {["nvidia", "openrouter"].map((p) => (
-                  <button key={p} onClick={() => setSelectedProvider(p)} className={`px-3 py-1.5 text-xs rounded-lg uppercase ${selectedProvider === p ? "bg-deep-espresso text-warm-ivory" : "bg-warm-ivory border border-warm-taupe/40"}`}>{p}</button>
-                ))}
-              </div>
+              <ProviderTaskBadge task="pin" lastRunLabel={resolvedProviderLabel} />
             </div>
+
+            {genError && (
+              <GenerationErrorBanner
+                error={genError}
+                onRetry={() => {
+                  setGenError(null);
+                  void handleGenerate();
+                }}
+                onDismiss={() => setGenError(null)}
+              />
+            )}
 
             <div>
               <Label className="text-sm font-medium mb-1.5 block">Temperature: {temperature.toFixed(2)}</Label>

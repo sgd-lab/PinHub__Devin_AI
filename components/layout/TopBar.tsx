@@ -1,20 +1,50 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { Bell, Search, User } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Bell, LogOut, Search, Settings, User } from "lucide-react";
 import { BrandSwitcher } from "./BrandSwitcher";
 import { useUIStore } from "@/stores/uiStore";
+import { useUserStore } from "@/stores/userStore";
+import { getSupabaseBrowserClient } from "@/lib/db/supabase";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function TopBar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { setCommandPaletteOpen } = useUIStore();
+  const { authUser, profile, reset } = useUserStore();
 
-  if (pathname === "/onboarding") return null;
+  if (
+    pathname === "/onboarding" ||
+    pathname === "/login" ||
+    pathname?.startsWith("/auth/")
+  ) {
+    return null;
+  }
 
-  const breadcrumb = pathname
+  const breadcrumb = (pathname ?? "")
     .split("/")
     .filter(Boolean)
     .map((seg) => seg.charAt(0).toUpperCase() + seg.slice(1));
+
+  const handleSignOut = async () => {
+    const sb = getSupabaseBrowserClient();
+    if (sb) await sb.auth.signOut();
+    reset();
+    router.replace("/login");
+  };
+
+  const initial =
+    profile?.display_name?.[0]?.toUpperCase() ||
+    authUser?.email?.[0]?.toUpperCase() ||
+    null;
 
   return (
     <header className="h-14 border-b border-warm-taupe/30 bg-warm-ivory/60 backdrop-blur-sm px-6 flex items-center justify-between shrink-0">
@@ -23,7 +53,13 @@ export function TopBar() {
         {breadcrumb.map((seg, i) => (
           <span key={i} className="flex items-center gap-2">
             <span className="text-warm-taupe">/</span>
-            <span className={i === breadcrumb.length - 1 ? "text-deep-espresso font-medium" : "text-charcoal"}>
+            <span
+              className={
+                i === breadcrumb.length - 1
+                  ? "text-deep-espresso font-medium"
+                  : "text-charcoal"
+              }
+            >
               {seg}
             </span>
           </span>
@@ -48,9 +84,56 @@ export function TopBar() {
           <Bell size={18} strokeWidth={1.5} />
         </button>
 
-        <button className="w-8 h-8 bg-dusty-rose/30 rounded-full flex items-center justify-center text-deep-espresso">
-          <User size={16} strokeWidth={1.5} />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-8 h-8 bg-dusty-rose/30 rounded-full flex items-center justify-center text-deep-espresso text-sm font-medium hover:bg-dusty-rose/50 transition-colors">
+              {initial ?? <User size={16} strokeWidth={1.5} />}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {authUser ? (
+              <>
+                <DropdownMenuLabel className="text-deep-espresso">
+                  <div className="font-medium truncate">
+                    {profile?.display_name || authUser.email || "Account"}
+                  </div>
+                  {authUser.email && (
+                    <div className="text-[11px] text-charcoal truncate">
+                      {authUser.email}
+                    </div>
+                  )}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => router.push("/settings/profile")}
+                >
+                  <User size={14} className="mr-2" /> Edit profile
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  onClick={() => router.push("/settings")}
+                >
+                  <Settings size={14} className="mr-2" /> Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-500"
+                  onClick={handleSignOut}
+                >
+                  <LogOut size={14} className="mr-2" /> Sign out
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <DropdownMenuItem
+                className="cursor-pointer"
+                onClick={() => router.push("/login")}
+              >
+                Sign in
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

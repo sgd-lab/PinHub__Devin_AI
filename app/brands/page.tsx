@@ -21,7 +21,10 @@ export default function BrandsPage() {
 
       {brands.length === 0 ? (
         <div className="text-center py-16 text-charcoal">
-          <p>No brand profiles yet. Complete onboarding to load Maya Sofia defaults.</p>
+          <p>
+            No brand yet. Complete onboarding or update Settings → Profile &
+            Brand to populate your atelier.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

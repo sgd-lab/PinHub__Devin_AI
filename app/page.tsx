@@ -2,22 +2,36 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUIStore } from "@/stores/uiStore";
+import { useUserStore } from "@/stores/userStore";
+import { isSupabaseConfigured } from "@/lib/db/supabase";
 
 export default function Home() {
   const router = useRouter();
-  const { onboardingComplete } = useUIStore();
+  const { authUser, profile, loaded } = useUserStore();
 
   useEffect(() => {
-    if (onboardingComplete) {
-      router.replace("/dashboard");
-    } else {
-      router.replace("/onboarding");
+    if (!loaded) return;
+
+    if (!isSupabaseConfigured()) {
+      router.replace("/login");
+      return;
     }
-  }, [onboardingComplete, router]);
+
+    if (!authUser) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!profile?.onboarding_completed) {
+      router.replace("/onboarding");
+      return;
+    }
+
+    router.replace("/dashboard");
+  }, [authUser, profile, loaded, router]);
 
   return (
-    <div className="flex items-center justify-center h-full">
+    <div className="flex items-center justify-center min-h-screen bg-warm-ivory">
       <div className="animate-pulse text-charcoal font-serif text-lg italic">
         Loading Atelier...
       </div>

@@ -1,8 +1,22 @@
+import type { AITaskKind, ChatMessage } from "./providers/types";
+
 export interface StreamOptions {
-  baseUrl: string;
-  apiKey: string;
-  model: string;
-  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+  /**
+   * Server-side route mode. When `task` is provided, the call is proxied
+   * through `/api/ai/chat` and the user's stored, encrypted key is used
+   * server-side. The legacy `baseUrl` + `apiKey` + `model` fields below
+   * are then ignored.
+   */
+  task?: AITaskKind;
+
+  /** @deprecated kept for backwards compatibility with the old direct flow */
+  baseUrl?: string;
+  /** @deprecated kept for backwards compatibility with the old direct flow */
+  apiKey?: string;
+  /** @deprecated kept for backwards compatibility with the old direct flow */
+  model?: string;
+
+  messages: ChatMessage[];
   temperature: number;
   maxTokens: number;
   topP?: number;
@@ -10,94 +24,135 @@ export interface StreamOptions {
   onComplete: (fullText: string) => void;
   onError: (error: Error) => void;
   onUsage?: (usage: { input_tokens: number; output_tokens: number }) => void;
+  onMeta?: (meta: {
+    provider: string;
+    model: string;
+    attempt: "primary" | "fallback";
+  }) => void;
   signal?: AbortSignal;
 }
 
+/**
+ * Stream a chat completion. Always routes through the server-side
+ * `/api/ai/chat` endpoint when a `task` is provided, so the user's API
+ * key is never exposed to the browser.
+ */
 export async function streamCompletion(options: StreamOptions): Promise<void> {
   const {
-    baseUrl,
-    apiKey,
-    model,
+    task,
     messages,
     temperature,
     maxTokens,
-    topP = 0.9,
     onToken,
     onComplete,
     onError,
     onUsage,
+    onMeta,
     signal,
   } = options;
 
+  if (!task) {
+    onError(
+      new Error(
+        "streamCompletion: a `task` is required. Direct provider calls from the client are no longer supported."
+      )
+    );
+    return;
+  }
+
+  let response: Response;
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    response = await fetch("/api/ai/chat", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model,
+        task,
         messages,
         temperature,
-        max_tokens: maxTokens,
-        top_p: topP,
-        stream: true,
+        maxTokens,
       }),
       signal,
     });
+  } catch (e) {
+    if ((e as Error).name === "AbortError") return;
+    onError(e instanceof Error ? e : new Error(String(e)));
+    return;
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`API Error ${response.status}: ${errorText}`);
+  if (!response.ok) {
+    let msg = `HTTP ${response.status}`;
+    try {
+      const j = await response.json();
+      if (j?.error) msg = j.error;
+    } catch {
+      // ignore
     }
+    onError(new Error(msg));
+    return;
+  }
 
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response body");
+  const reader = response.body?.getReader();
+  if (!reader) {
+    onError(new Error("No response body from /api/ai/chat"));
+    return;
+  }
 
-    const decoder = new TextDecoder();
-    let fullText = "";
-    let inputTokens = 0;
-    let outputTokens = 0;
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
 
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
-
-      for (const line of lines) {
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") continue;
-
-        try {
-          const parsed = JSON.parse(data);
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) {
-            fullText += content;
-            onToken(content);
+    let idx: number;
+    while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      const event = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 2);
+      const dataLine = event
+        .split("\n")
+        .find((l) => l.startsWith("data:"));
+      if (!dataLine) continue;
+      const payload = dataLine.slice(5).trim();
+      if (!payload) continue;
+      try {
+        const parsed = JSON.parse(payload);
+        switch (parsed.type) {
+          case "token":
+            if (typeof parsed.token === "string") {
+              fullText += parsed.token;
+              onToken(parsed.token);
+            }
+            break;
+          case "usage":
+            if (parsed.usage) onUsage?.(parsed.usage);
+            break;
+          case "meta":
+            onMeta?.({
+              provider: parsed.provider,
+              model: parsed.model,
+              attempt: parsed.attempt,
+            });
+            break;
+          case "error": {
+            const err = new Error(parsed.message ?? "Provider error");
+            (err as Error & { code?: string }).code =
+              parsed.code ?? "provider_error";
+            onError(err);
+            break;
           }
-          if (parsed.usage) {
-            inputTokens = parsed.usage.prompt_tokens || 0;
-            outputTokens = parsed.usage.completion_tokens || 0;
-          }
-        } catch {
-          // skip malformed chunks
+          case "done":
+            onComplete(fullText);
+            return;
         }
+      } catch {
+        // skip malformed event
       }
     }
-
-    if (outputTokens === 0) {
-      outputTokens = Math.ceil(fullText.length / 4);
-    }
-
-    onUsage?.({ input_tokens: inputTokens, output_tokens: outputTokens });
-    onComplete(fullText);
-  } catch (error) {
-    if ((error as Error).name === "AbortError") return;
-    onError(error as Error);
   }
+
+  onComplete(fullText);
 }
 
 export function estimateTokens(text: string): number {
@@ -116,6 +171,9 @@ export function estimateCost(
     "gpt-4o": { input: 2.5, output: 10 },
     "gpt-4o-mini": { input: 0.15, output: 0.6 },
     "llama-3.1": { input: 0.2, output: 0.2 },
+    "gemini-1.5-flash": { input: 0.075, output: 0.3 },
+    "gemini-1.5-pro": { input: 1.25, output: 5 },
+    "grok-2": { input: 2, output: 10 },
   };
 
   const modelKey =

@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Key, Settings2, Monitor, Shield, Bell, Wrench } from "lucide-react";
+import { Key, Settings2, Monitor, Shield, Bell, Wrench, User } from "lucide-react";
 
 const settingsNav = [
+  { href: "/settings/profile", label: "Profile & Brand", icon: User },
   { href: "/settings/api-keys", label: "API Keys", icon: Key },
   { href: "/settings/defaults", label: "Defaults", icon: Settings2 },
   { href: "/settings/ui", label: "UI Preferences", icon: Monitor },

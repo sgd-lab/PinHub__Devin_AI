@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { useUserStore } from "@/stores/userStore";
+import { useUIStore } from "@/stores/uiStore";
 import { AssistantPanel } from "./AssistantPanel";
 
 /**
- * Floating chat button (bottom-right). Opens the persistent AI Creative
- * Assistant panel. Hidden until the user is authenticated and onboarded
- * (so the assistant always has creator context to reference).
+ * Floating chat button (bottom-right) that opens the persistent AI Creative
+ * Assistant panel. Hidden for un-authenticated users. The open state lives
+ * in `useUIStore` so other surfaces (e.g. the TopBar "AI Assistant" button)
+ * can open the same panel.
  */
 export function AssistantFab() {
-  const [open, setOpen] = useState(false);
   const { authUser, loaded } = useUserStore();
+  const { assistantOpen, toggleAssistant, setAssistantOpen } = useUIStore();
 
   if (!loaded) return null;
   if (!authUser) return null;
@@ -20,13 +21,15 @@ export function AssistantFab() {
   return (
     <>
       <button
-        onClick={() => setOpen((v) => !v)}
-        aria-label={open ? "Close AI assistant" : "Open AI assistant"}
+        onClick={toggleAssistant}
+        aria-label={assistantOpen ? "Close AI assistant" : "Open AI assistant"}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-deep-espresso text-warm-ivory shadow-xl hover:bg-deep-espresso/90 hover:scale-105 transition-transform flex items-center justify-center"
       >
-        {open ? <X size={22} /> : <Sparkles size={22} />}
+        {assistantOpen ? <X size={22} /> : <Sparkles size={22} />}
       </button>
-      {open && <AssistantPanel onClose={() => setOpen(false)} />}
+      {assistantOpen && (
+        <AssistantPanel onClose={() => setAssistantOpen(false)} />
+      )}
     </>
   );
 }

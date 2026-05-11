@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, LogOut, Search, Settings, User } from "lucide-react";
+import { Bell, LogOut, Search, Settings, Sparkles, User } from "lucide-react";
 import { BrandSwitcher } from "./BrandSwitcher";
 import { useUIStore } from "@/stores/uiStore";
 import { useUserStore } from "@/stores/userStore";
@@ -18,7 +18,7 @@ import {
 export function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { setCommandPaletteOpen } = useUIStore();
+  const { setCommandPaletteOpen, toggleAssistant, assistantOpen } = useUIStore();
   const { authUser, profile, reset } = useUserStore();
 
   if (
@@ -79,6 +79,22 @@ export function TopBar() {
         </button>
 
         <BrandSwitcher />
+
+        {authUser && (
+          <button
+            onClick={toggleAssistant}
+            aria-label={assistantOpen ? "Close AI assistant" : "Open AI assistant"}
+            title="AI Creative Assistant"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors border ${
+              assistantOpen
+                ? "bg-deep-espresso text-warm-ivory border-deep-espresso"
+                : "text-deep-espresso bg-warm-ivory border-warm-taupe/40 hover:bg-cream-hover"
+            }`}
+          >
+            <Sparkles size={14} strokeWidth={1.5} />
+            <span className="hidden md:inline">Assistant</span>
+          </button>
+        )}
 
         <button className="relative p-2 text-charcoal hover:bg-cream-hover rounded-lg transition-colors">
           <Bell size={18} strokeWidth={1.5} />

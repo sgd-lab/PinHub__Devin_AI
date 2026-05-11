@@ -15,6 +15,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   MessageSquare,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -58,6 +59,18 @@ interface ProviderSettings {
   available_models: ModelInfo[];
 }
 
+interface UsageSummary {
+  today: { total_tokens: number; cost: number; runs: number };
+  month: { total_tokens: number; cost: number; runs: number };
+  current_active: { provider: string; model: string } | null;
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
 export function AssistantPanel({ onClose }: { onClose: () => void }) {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [activeSession, setActiveSession] = useState<SessionRow | null>(null);
@@ -68,6 +81,7 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
   const [showSwitcher, setShowSwitcher] = useState(false);
   const [providerSettings, setProviderSettings] = useState<ProviderSettings[]>([]);
   const [hasKeys, setHasKeys] = useState<Set<ProviderId>>(new Set());
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -91,6 +105,17 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
     setHasKeys(new Set((j.keys ?? []).map((k) => k.provider)));
   }, []);
 
+  const loadUsage = useCallback(async () => {
+    try {
+      const r = await fetch("/api/ai/usage/summary", { cache: "no-store" });
+      if (!r.ok) return;
+      const j = (await r.json()) as UsageSummary;
+      setUsage(j);
+    } catch {
+      // ignore — keep last value, assistant still works without the chip
+    }
+  }, []);
+
   const selectSession = useCallback(async (s: SessionRow) => {
     setActiveSession(s);
     setGenError(null);
@@ -108,12 +133,19 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     void loadKeys();
+    void loadUsage();
     void loadSessions().then((sess) => {
       if (sess && sess.length > 0) {
         void selectSession(sess[0]);
       }
     });
-  }, [loadKeys, loadSessions, selectSession]);
+    // Keep the chip fresh while the panel is open so the user can ask
+    // "how many credits have I used?" right after a generation.
+    const interval = setInterval(() => {
+      void loadUsage();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [loadKeys, loadSessions, loadUsage, selectSession]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -442,6 +474,18 @@ export function AssistantPanel({ onClose }: { onClose: () => void }) {
               {sessionProviderLabel}
               <ChevronDown size={10} />
             </button>
+            {usage && (
+              <div
+                className="text-[10px] text-warm-taupe flex items-center gap-1 truncate mt-0.5"
+                title={`Today: ${formatTokens(usage.today.total_tokens)} tok · $${usage.today.cost.toFixed(4)}\nThis month: ${formatTokens(usage.month.total_tokens)} tok · $${usage.month.cost.toFixed(4)} across ${usage.month.runs} run${usage.month.runs === 1 ? "" : "s"}`}
+              >
+                <Activity size={10} className="shrink-0" />
+                <span className="truncate">
+                  {formatTokens(usage.month.total_tokens)} tok · $
+                  {usage.month.cost.toFixed(2)} this month
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">

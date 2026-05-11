@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Sparkles, Copy, FileText, Calendar, Send } from "lucide-react";
+import { Sparkles, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WorkflowActions } from "@/components/workflow/WorkflowActions";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -259,11 +260,12 @@ Forbidden: ${todayNiche?.forbidden.join(", ") || ""}`,
                   </div>
                 )}
                 {currentRun.status === "complete" && (
-                  <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg"><FileText size={14} className="mr-1" />Feed to Guide Generator</Button>
-                    <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg"><Calendar size={14} className="mr-1" />Add All to Calendar</Button>
-                    <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg"><Send size={14} className="mr-1" />Push to Notion</Button>
-                  </div>
+                  <WorkflowActions
+                    output={output}
+                    runId={lastRunId}
+                    runType="daily"
+                    niche={lastRunNiche}
+                  />
                 )}
               </div>
             )}

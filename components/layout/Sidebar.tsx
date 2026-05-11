@@ -77,7 +77,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "group/nav flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 hover:translate-x-0.5 active:translate-x-0 active:scale-[0.98]",
                 isActive
                   ? "bg-deep-espresso text-warm-ivory"
                   : "text-charcoal hover:bg-cream-hover",
@@ -85,7 +85,11 @@ export function Sidebar() {
               )}
               title={sidebarCollapsed ? item.label : undefined}
             >
-              <Icon size={20} strokeWidth={1.5} />
+              <Icon
+                size={20}
+                strokeWidth={1.5}
+                className="transition-transform duration-200 group-hover/nav:scale-110"
+              />
               {!sidebarCollapsed && (
                 <>
                   <span className="flex-1">{item.label}</span>
@@ -104,7 +108,7 @@ export function Sidebar() {
       <div className="p-2 border-t border-warm-taupe/30">
         <button
           onClick={toggleSidebar}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-charcoal hover:bg-cream-hover rounded-lg transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-charcoal hover:bg-cream-hover rounded-lg transition-all duration-200 active:scale-[0.97]"
         >
           {sidebarCollapsed ? (
             <ChevronRight size={16} strokeWidth={1.5} />

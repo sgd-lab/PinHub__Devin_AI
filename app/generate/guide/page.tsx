@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { FileText, Sparkles, Download, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,10 @@ import {
 } from "@/components/ai/GenerationErrorBanner";
 import { buildRatingSnippet } from "@/lib/ai/outputRatings";
 import { toast } from "sonner";
+import { useGuideContextStore } from "@/stores/guideContextStore";
+import { WorkflowActions } from "@/components/workflow/WorkflowActions";
+import type { ParsedPin } from "@/lib/parsing/pinSections";
+import { exportGuideAsPDF } from "@/lib/exports/pdfExporter";
 
 const MONETIZATION_ANGLES = ["Affiliate", "Brand Deal", "Community"] as const;
 type Angle = (typeof MONETIZATION_ANGLES)[number];
@@ -163,6 +167,63 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
     toast.success("Markdown copied");
   };
 
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const handleExportPdf = async () => {
+    if (!output.trim()) {
+      toast.error("Nothing to export yet.");
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      const title = guideTitle || `${weekLabel || "This Week"} — Style Guide`;
+      const subtitle = activeBrand
+        ? `${activeBrand.identity.name} · ${angle}`
+        : angle;
+      await exportGuideAsPDF({
+        title,
+        subtitle,
+        body: output,
+        filename: `${title.replace(/[^a-z0-9\-_ ]/gi, "").trim() || "pinhub-guide"}.pdf`,
+      });
+      toast.success("PDF downloaded.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      toast.error(`Failed to export PDF: ${msg}`);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+  // Pre-fill from the FeedToGuide workflow if a previous generation
+  // stashed pins for us. Acts as a one-shot context: cleared after use.
+  const pendingGuideContext = useGuideContextStore((s) => s.pending);
+  const clearPending = useGuideContextStore((s) => s.clearPending);
+  const [appliedContext, setAppliedContext] = useState<typeof pendingGuideContext>(null);
+
+  useEffect(() => {
+    if (pendingGuideContext && !appliedContext) {
+      setAppliedContext(pendingGuideContext);
+      if (pendingGuideContext.source_niche && !weekLabel) {
+        setWeekLabel(pendingGuideContext.source_niche);
+      }
+      clearPending();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingGuideContext]);
+
+  const guidePins = useMemo<ParsedPin[]>(() => {
+    if (!output) return [];
+    return [
+      {
+        index: 1,
+        label: "Full Guide",
+        title: guideTitle || `${weekLabel || "This Week"} — Style Guide`,
+        description: output,
+        sections: [],
+      },
+    ];
+  }, [output, guideTitle, weekLabel]);
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -289,20 +350,67 @@ Keep the tone consistent with the brand's voice. Avoid generic content; referenc
               </p>
             </div>
           )}
-          {output && (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-warm-taupe rounded-lg"
-                onClick={handleCopyMarkdown}
+          {appliedContext && appliedContext.pins.length > 0 && (
+            <div className="bg-cream-hover/60 border border-warm-taupe/30 rounded-lg p-3 text-xs text-charcoal">
+              <div className="font-medium text-deep-espresso mb-1 flex items-center gap-1">
+                <FileText size={12} className="text-deep-espresso" />
+                Using {appliedContext.pins.length} pin
+                {appliedContext.pins.length === 1 ? "" : "s"} from a previous
+                generation as context.
+              </div>
+              <div className="space-y-0.5">
+                {appliedContext.pins.map((p) => (
+                  <div key={p.index} className="truncate">
+                    · {p.title || `Pin ${p.index}`}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setAppliedContext(null)}
+                className="mt-2 text-[11px] underline text-warm-taupe hover:text-deep-espresso"
               >
-                <Copy size={14} className="mr-1" /> Copy Markdown
-              </Button>
-              <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg" disabled>
-                <Download size={14} className="mr-1" /> Export PDF
-              </Button>
+                Clear context
+              </button>
             </div>
+          )}
+          {output && (
+            <WorkflowActions
+              output={output}
+              runId={lastRunId}
+              runType="guide"
+              niche={lastRunNiche}
+              pinsOverride={guidePins}
+              show={{
+                feedToGuide: false,
+                addToCalendar: false,
+                pushToNotion: true,
+                saveToLibrary: true,
+              }}
+              extraButtons={
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-warm-taupe rounded-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                    onClick={handleCopyMarkdown}
+                  >
+                    <Copy size={14} className="mr-1 transition-transform group-hover/button:scale-110" />{" "}
+                    Copy Markdown
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-warm-taupe rounded-lg transition-transform hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                    onClick={handleExportPdf}
+                    disabled={exportingPdf}
+                  >
+                    <Download size={14} className="mr-1 transition-transform group-hover/button:scale-110" />{" "}
+                    {exportingPdf ? "Exporting…" : "Export PDF"}
+                  </Button>
+                </>
+              }
+            />
           )}
         </div>
       </div>

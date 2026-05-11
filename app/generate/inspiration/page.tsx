@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Sparkles, Copy, Check, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WorkflowActions } from "@/components/workflow/WorkflowActions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -408,6 +409,25 @@ Forbidden visual: ${activeBrand.visual_system.never.join(", ")}`,
                       generations; weak ones are avoided.
                     </p>
                   </div>
+                )}
+
+                {currentRun.status === "complete" && (
+                  <WorkflowActions
+                    output={output}
+                    runId={lastRunId}
+                    runType="inspiration"
+                    niche={
+                      selectedNiche === "auto"
+                        ? activeBrand?.niches[0]?.name ?? null
+                        : selectedNiche
+                    }
+                    show={{
+                      feedToGuide: true,
+                      saveToLibrary: true,
+                      addToCalendar: true,
+                      pushToNotion: true,
+                    }}
+                  />
                 )}
 
                 {currentRun.costEstimate > 0 && (

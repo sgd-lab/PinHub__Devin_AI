@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { useEffect, useState, useMemo, useCallback } from "react";
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 // import { Badge } from "@/components/ui/badge";
 import { useBrandStore } from "@/stores/brandStore";
@@ -9,6 +9,17 @@ import { getPinsForDateRange, updateRunTargetDate } from "@/lib/db/runRepository
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, addMonths, subMonths } from "date-fns";
 import type { RunRecord } from "@/lib/db/dexie";
 import { toast } from "sonner";
+
+interface CalendarEntry {
+  id: string;
+  scheduled_for: string;
+  scheduled_time: string | null;
+  content_type: string;
+  status: string;
+  title: string;
+  run_id: string | null;
+  run_type: string | null;
+}
 
 const NICHE_COLORS: Record<string, string> = {
   "Quiet Luxury Workwear": "#3E2723",
@@ -20,6 +31,7 @@ export default function CalendarPage() {
   const { activeBrand } = useBrandStore();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [pins, setPins] = useState<RunRecord[]>([]);
+  const [entries, setEntries] = useState<CalendarEntry[]>([]);
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [planningMode, setPlanningMode] = useState(false);
   const [draggedPin, setDraggedPin] = useState<string | null>(null);
@@ -28,6 +40,20 @@ export default function CalendarPage() {
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startDay = getDay(monthStart);
+
+  const loadEntries = useCallback(async () => {
+    try {
+      const start = format(monthStart, "yyyy-MM-dd");
+      const end = format(monthEnd, "yyyy-MM-dd");
+      const url = `/api/calendar/entries?from=${start}&to=${end}`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const body = (await res.json()) as { entries?: CalendarEntry[] };
+      setEntries(body?.entries ?? []);
+    } catch {
+      /* silent */
+    }
+  }, [monthStart, monthEnd]);
 
   useEffect(() => {
     const load = async () => {
@@ -39,6 +65,7 @@ export default function CalendarPage() {
       } catch {}
     };
     load();
+    loadEntries();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth]);
 
@@ -51,6 +78,29 @@ export default function CalendarPage() {
     }
     return map;
   }, [pins]);
+
+  const entriesByDate = useMemo(() => {
+    const map: Record<string, CalendarEntry[]> = {};
+    for (const e of entries) {
+      const date = e.scheduled_for;
+      if (!map[date]) map[date] = [];
+      map[date].push(e);
+    }
+    return map;
+  }, [entries]);
+
+  const deleteEntry = async (id: string) => {
+    const prev = entries;
+    setEntries((es) => es.filter((e) => e.id !== id));
+    try {
+      const res = await fetch(`/api/calendar/entries/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success("Scheduled entry removed.");
+    } catch {
+      toast.error("Failed to remove entry.");
+      setEntries(prev);
+    }
+  };
 
   const getNicheForDay = (date: Date) => {
     if (!activeBrand) return null;
@@ -129,10 +179,37 @@ export default function CalendarPage() {
                     key={pin.id}
                     draggable
                     onDragStart={() => setDraggedPin(pin.id)}
-                    className="text-[10px] bg-warm-ivory border border-warm-taupe/20 rounded px-1.5 py-1 mb-0.5 cursor-grab truncate"
+                    className="text-[10px] bg-warm-ivory border border-warm-taupe/20 rounded px-1.5 py-1 mb-0.5 cursor-grab truncate transition-all hover:bg-cream-hover hover:-translate-y-0.5"
                     title={pin.parsed_fields.title as string}
                   >
                     {pin.parsed_fields.title as string || "Untitled"}
+                  </div>
+                ))}
+                {(entriesByDate[dateStr] ?? []).map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="group text-[10px] bg-dusty-rose/15 border border-dusty-rose/40 rounded px-1.5 py-1 mb-0.5 flex items-center gap-1 transition-all hover:bg-dusty-rose/25"
+                    title={`${entry.title}${entry.scheduled_time ? ` @ ${entry.scheduled_time}` : ""}`}
+                  >
+                    <span className="flex-1 truncate text-deep-espresso">
+                      {entry.scheduled_time ? (
+                        <span className="text-warm-taupe mr-1">
+                          {entry.scheduled_time.slice(0, 5)}
+                        </span>
+                      ) : null}
+                      {entry.title || "Scheduled"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteEntry(entry.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-red-500 transition-all hover:scale-110 active:scale-95"
+                      aria-label="Remove scheduled entry"
+                    >
+                      <Trash2 size={9} />
+                    </button>
                   </div>
                 ))}
                 {planningMode && dayPins.length === 0 && niche && (

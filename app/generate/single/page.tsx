@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Sparkles, Copy, Check, Save, Send, Calendar } from "lucide-react";
+import { Sparkles, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WorkflowActions } from "@/components/workflow/WorkflowActions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -431,17 +432,22 @@ Palette: ${activeBrand.visual_system.palette.map(p => p.name).join(", ")}`,
 
                 {/* Actions */}
                 {currentRun.status === "complete" && (
-                  <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" className="bg-deep-espresso text-warm-ivory rounded-lg">
-                      <Save size={14} className="mr-1" /> Save to Library
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg">
-                      <Send size={14} className="mr-1" /> Send to Notion
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-warm-taupe rounded-lg">
-                      <Calendar size={14} className="mr-1" /> Add to Calendar
-                    </Button>
-                  </div>
+                  <WorkflowActions
+                    output={output}
+                    runId={lastRunId}
+                    runType="single"
+                    niche={
+                      selectedNiche === "auto"
+                        ? activeBrand?.niches[0]?.name ?? null
+                        : selectedNiche
+                    }
+                    show={{
+                      feedToGuide: false,
+                      saveToLibrary: true,
+                      addToCalendar: true,
+                      pushToNotion: true,
+                    }}
+                  />
                 )}
 
                 {/* Cost display */}

@@ -38,11 +38,31 @@ interface RecentMessageRow {
   created_at: string;
 }
 
+interface UsageSnapshotRow {
+  provider: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_estimate: number;
+  created_at: string;
+}
+
+export interface UsageSnapshot {
+  today_tokens: number;
+  today_cost: number;
+  today_runs: number;
+  month_tokens: number;
+  month_cost: number;
+  month_runs: number;
+  top_provider: { provider: string; tokens: number; cost: number } | null;
+}
+
 export interface CreatorContext {
   profile: UserProfileRow | null;
   preferences: UserPreferencesRow | null;
   brandMemory: BrandMemoryRow | null;
   recentMemoryEvents: MemoryEventRow[];
+  usage: UsageSnapshot | null;
 }
 
 /**
@@ -54,11 +74,20 @@ export async function loadCreatorContext(
   sb: SupabaseClient,
   userId: string
 ): Promise<CreatorContext> {
+  const now = new Date();
+  const startOfMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+  ).toISOString();
+  const startOfDay = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  ).toISOString();
+
   const [
     { data: profile },
     { data: preferences },
     { data: brandMemory },
     { data: events },
+    { data: usageRows, error: usageError },
   ] = await Promise.all([
     sb
       .from("user_profiles")
@@ -86,18 +115,103 @@ export async function loadCreatorContext(
       .order("created_at", { ascending: false })
       .limit(40)
       .returns<MemoryEventRow[]>(),
+    sb
+      .from("ai_usage_log")
+      .select("provider, model, input_tokens, output_tokens, cost_estimate, created_at")
+      .eq("user_id", userId)
+      .gte("created_at", startOfMonth)
+      .order("created_at", { ascending: false })
+      .returns<UsageSnapshotRow[]>(),
   ]);
+
+  // Tolerate the ai_usage_log table not existing yet (older Supabase project)
+  // so the assistant chat keeps working even before 0007 is applied.
+  const usage = usageError ? null : summarizeUsage(usageRows ?? [], startOfDay);
 
   return {
     profile: profile ?? null,
     preferences: preferences ?? null,
     brandMemory: brandMemory ?? null,
     recentMemoryEvents: events ?? [],
+    usage,
+  };
+}
+
+function summarizeUsage(
+  rows: UsageSnapshotRow[],
+  startOfDayIso: string
+): UsageSnapshot {
+  let today_tokens = 0;
+  let today_cost = 0;
+  let today_runs = 0;
+  let month_tokens = 0;
+  let month_cost = 0;
+  const byProvider = new Map<string, { tokens: number; cost: number }>();
+  for (const r of rows) {
+    const t = (r.input_tokens ?? 0) + (r.output_tokens ?? 0);
+    const c = Number(r.cost_estimate ?? 0);
+    month_tokens += t;
+    month_cost += c;
+    if (r.created_at >= startOfDayIso) {
+      today_tokens += t;
+      today_cost += c;
+      today_runs += 1;
+    }
+    const cur = byProvider.get(r.provider) ?? { tokens: 0, cost: 0 };
+    cur.tokens += t;
+    cur.cost += c;
+    byProvider.set(r.provider, cur);
+  }
+  let top_provider: UsageSnapshot["top_provider"] = null;
+  byProvider.forEach((v, provider) => {
+    if (!top_provider || v.cost > top_provider.cost) {
+      top_provider = {
+        provider,
+        tokens: v.tokens,
+        cost: Number(v.cost.toFixed(6)),
+      };
+    }
+  });
+  return {
+    today_tokens,
+    today_cost: Number(today_cost.toFixed(6)),
+    today_runs,
+    month_tokens,
+    month_cost: Number(month_cost.toFixed(6)),
+    month_runs: rows.length,
+    top_provider,
   };
 }
 
 function bullet(items: string[]): string {
   return items.filter(Boolean).map((s) => `- ${s}`).join("\n");
+}
+
+function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+function buildUsageSection(usage: UsageSnapshot | null): string {
+  if (!usage) {
+    return `Live usage (this user, current month):
+- Unknown — the ai_usage_log table is not reachable yet. Tell the user to open Settings → API Keys to see provider quotas.`;
+  }
+  if (usage.month_runs === 0) {
+    return `Live usage (this user, current month):
+- 0 generations so far this month — they haven't spent any credits yet.`;
+  }
+  const lines: string[] = [
+    `Today: ${formatTokenCount(usage.today_tokens)} tokens · $${usage.today_cost.toFixed(4)} · ${usage.today_runs} run${usage.today_runs === 1 ? "" : "s"}.`,
+    `This month: ${formatTokenCount(usage.month_tokens)} tokens · $${usage.month_cost.toFixed(4)} · ${usage.month_runs} run${usage.month_runs === 1 ? "" : "s"}.`,
+  ];
+  if (usage.top_provider) {
+    lines.push(
+      `Top provider this month: ${usage.top_provider.provider} (${formatTokenCount(usage.top_provider.tokens)} tokens, $${usage.top_provider.cost.toFixed(4)}).`
+    );
+  }
+  return `Live usage (this user, current month):\n${bullet(lines)}`;
 }
 
 function summarizeEvents(events: MemoryEventRow[]): string {
@@ -188,6 +302,7 @@ export function buildAssistantSystemPrompt(ctx: CreatorContext): string {
     memLines.push(`Rejected outputs: ${mem.rejected_outputs.length}`);
 
   const memorySummary = summarizeEvents(ctx.recentMemoryEvents);
+  const usageSection = buildUsageSection(ctx.usage);
 
   const sections: string[] = [
     `You are the in-app creative strategist for PinHub, a Pinterest content studio.
@@ -203,11 +318,13 @@ could paste it into the existing Pin / Daily / Guide generators.`,
     prefLines.length > 0 ? `Preferences:\n${bullet(prefLines)}` : null,
     memLines.length > 0 ? `Library signals:\n${bullet(memLines)}` : null,
     `Remembered behavior:\n${memorySummary}`,
+    usageSection,
     `Rules:
 - Never invent provider/API details. The user's keys are managed by PinHub.
 - If the creator asks for a pin, daily set, or guide, reference their actual niches and palette.
 - If the creator asks "what should I post today?", look at their rotation hint (day of week) and recent rejected suggestions — avoid repeats.
 - When the creator accepts or rejects something, briefly acknowledge it; the system records that as memory.
+- If the creator asks anything about credits, tokens, cost, billing, or quota, use the numbers in "Live usage" verbatim — do not invent or round aggressively. If usage is unknown, tell them to open Settings → API Keys / Usage.
 - Keep replies under ~250 words unless asked for a long-form guide.`,
   ].filter((s): s is string => Boolean(s));
 

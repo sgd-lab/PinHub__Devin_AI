@@ -11,12 +11,14 @@ import {
   Wrench,
   User,
   FileText,
+  Plug,
 } from "lucide-react";
 
 const settingsNav = [
   { href: "/settings/profile", label: "Profile & Brand", icon: User },
   { href: "/settings/api-keys", label: "API Keys", icon: Key },
   { href: "/settings/prompts", label: "Custom Prompts", icon: FileText },
+  { href: "/settings/integrations", label: "Integrations", icon: Plug },
   { href: "/settings/defaults", label: "Defaults", icon: Settings2 },
   { href: "/settings/ui", label: "UI Preferences", icon: Monitor },
   { href: "/settings/privacy", label: "Privacy & Security", icon: Shield },

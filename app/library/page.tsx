@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Grid3X3, List, LayoutList, Plus, Download, Trash2, Filter } from "lucide-react";
+import { Search, Grid3X3, List, LayoutList, Plus, Download, Trash2, Filter, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,16 +11,87 @@ import { exportRunsToCSV } from "@/lib/exports/csvExporter";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
+interface SavedLibraryItem {
+  id: string;
+  title: string;
+  description: string | null;
+  visual_prompt: string | null;
+  thumbnail_url: string | null;
+  is_favorite: boolean;
+  tags: string[] | null;
+  run_type: string | null;
+  saved_at: string;
+}
 
 export default function LibraryPage() {
   const { runs, setRuns, selectedIds, toggleSelect, clearSelection, filters, setFilter, clearFilters, view, setView } = useLibraryStore();
   const [mounted, setMounted] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
+  const [tab, setTab] = useState<"runs" | "saved">("runs");
+  const [savedItems, setSavedItems] = useState<SavedLibraryItem[] | null>(null);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [savedFavOnly, setSavedFavOnly] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     getAllRuns().then(setRuns).catch(() => {});
   }, [setRuns]);
+
+  useEffect(() => {
+    if (tab !== "saved") return;
+    let cancelled = false;
+    setSavedLoading(true);
+    const url = savedFavOnly
+      ? "/api/library/items?filter=favorites"
+      : "/api/library/items";
+    fetch(url)
+      .then((r) => r.json())
+      .then((body: { items?: SavedLibraryItem[] }) => {
+        if (!cancelled) setSavedItems(body?.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSavedItems([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSavedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, savedFavOnly]);
+
+  const toggleFavorite = async (id: string, current: boolean) => {
+    setSavedItems((prev) =>
+      prev?.map((i) => (i.id === id ? { ...i, is_favorite: !current } : i)) ?? prev
+    );
+    try {
+      const res = await fetch(`/api/library/items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_favorite: !current }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      toast.error("Failed to update favorite.");
+      setSavedItems((prev) =>
+        prev?.map((i) => (i.id === id ? { ...i, is_favorite: current } : i)) ?? prev
+      );
+    }
+  };
+
+  const deleteSaved = async (id: string) => {
+    if (!confirm("Delete this saved item?")) return;
+    const prev = savedItems;
+    setSavedItems((s) => s?.filter((i) => i.id !== id) ?? s);
+    try {
+      const res = await fetch(`/api/library/items/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success("Deleted.");
+    } catch {
+      toast.error("Failed to delete.");
+      setSavedItems(prev ?? null);
+    }
+  };
 
   if (!mounted) return null;
 
@@ -51,7 +122,124 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto space-y-4">
+      <div className="flex gap-1 border-b border-warm-taupe/30">
+        <button
+          type="button"
+          onClick={() => setTab("runs")}
+          className={`px-4 py-2 text-sm transition-all -mb-px border-b-2 active:scale-[0.98] ${
+            tab === "runs"
+              ? "border-deep-espresso text-deep-espresso font-medium"
+              : "border-transparent text-charcoal hover:text-deep-espresso"
+          }`}
+        >
+          Generation Runs ({runs.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("saved")}
+          className={`px-4 py-2 text-sm transition-all -mb-px border-b-2 active:scale-[0.98] ${
+            tab === "saved"
+              ? "border-deep-espresso text-deep-espresso font-medium"
+              : "border-transparent text-charcoal hover:text-deep-espresso"
+          }`}
+        >
+          Saved Items{savedItems ? ` (${savedItems.length})` : ""}
+        </button>
+      </div>
+
+      {tab === "saved" ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="text-xs text-charcoal">
+              Items you saved from the &quot;Save to Library&quot; workflow on
+              generation pages.
+            </p>
+            <label className="flex items-center gap-1.5 text-xs text-charcoal cursor-pointer">
+              <input
+                type="checkbox"
+                checked={savedFavOnly}
+                onChange={(e) => setSavedFavOnly(e.target.checked)}
+                className="accent-deep-espresso"
+              />
+              Favorites only
+            </label>
+          </div>
+
+          {savedLoading ? (
+            <div className="text-sm text-charcoal py-8 text-center">
+              Loading saved items…
+            </div>
+          ) : !savedItems || savedItems.length === 0 ? (
+            <div className="text-center py-16 text-charcoal">
+              <Star size={32} strokeWidth={1} className="text-warm-taupe mx-auto mb-3" />
+              <p className="text-sm">
+                {savedFavOnly
+                  ? "No favorites yet."
+                  : "Nothing saved yet. Generate a pin and click \"Save to Library\" to start building your collection."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {savedItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white/60 border border-warm-taupe/30 rounded-lg p-4 group hover:shadow-sm hover:-translate-y-0.5 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-2 gap-2">
+                    <h4 className="text-sm font-medium text-deep-espresso line-clamp-2 flex-1">
+                      {item.title}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => toggleFavorite(item.id, item.is_favorite)}
+                      className="p-1 hover:bg-cream-hover rounded transition-all active:scale-90"
+                      aria-label="Toggle favorite"
+                    >
+                      <Star
+                        size={14}
+                        className={
+                          item.is_favorite
+                            ? "text-muted-gold fill-muted-gold"
+                            : "text-warm-taupe"
+                        }
+                      />
+                    </button>
+                  </div>
+                  {item.description && (
+                    <p className="text-xs text-charcoal line-clamp-3 mb-2">
+                      {item.description}
+                    </p>
+                  )}
+                  {item.tags && item.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {item.tags.map((tag) => (
+                        <Badge
+                          key={tag}
+                          variant="secondary"
+                          className="text-[10px] bg-warm-taupe/15 text-charcoal"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between text-[10px] text-warm-taupe">
+                    <span>{format(new Date(item.saved_at), "MMM d, h:mm a")}</span>
+                    <button
+                      type="button"
+                      onClick={() => deleteSaved(item.id)}
+                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:underline transition-opacity"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="flex gap-6">
         {/* Filter Sidebar */}
         {showFilters && (
@@ -155,6 +343,7 @@ export default function LibraryPage() {
           <div className="text-xs text-charcoal text-center py-4">{filteredRuns.length} of {runs.length} records</div>
         </div>
       </div>
+      )}
     </div>
   );
 }

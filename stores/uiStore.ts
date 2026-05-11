@@ -7,6 +7,7 @@ interface UIState {
   sidebarCollapsed: boolean;
   costMeterVisible: boolean;
   commandPaletteOpen: boolean;
+  assistantOpen: boolean;
   theme: "warm-ivory" | "dark-atelier";
   fontSize: "sm" | "md" | "lg";
   density: "compact" | "comfortable" | "spacious";
@@ -25,6 +26,8 @@ interface UIState {
   toggleSidebar: () => void;
   toggleCostMeter: () => void;
   setCommandPaletteOpen: (open: boolean) => void;
+  setAssistantOpen: (open: boolean) => void;
+  toggleAssistant: () => void;
   setTheme: (theme: "warm-ivory" | "dark-atelier") => void;
   setFontSize: (size: "sm" | "md" | "lg") => void;
   setDensity: (density: "compact" | "comfortable" | "spacious") => void;
@@ -42,6 +45,7 @@ export const useUIStore = create<UIState>()(
       sidebarCollapsed: false,
       costMeterVisible: true,
       commandPaletteOpen: false,
+      assistantOpen: false,
       theme: "warm-ivory",
       fontSize: "md",
       density: "comfortable",
@@ -60,6 +64,8 @@ export const useUIStore = create<UIState>()(
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       toggleCostMeter: () => set((s) => ({ costMeterVisible: !s.costMeterVisible })),
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
+      setAssistantOpen: (open) => set({ assistantOpen: open }),
+      toggleAssistant: () => set((s) => ({ assistantOpen: !s.assistantOpen })),
       setTheme: (theme) => set({ theme }),
       setFontSize: (fontSize) => set({ fontSize }),
       setDensity: (density) => set({ density }),

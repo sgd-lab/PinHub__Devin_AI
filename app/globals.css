@@ -34,3 +34,86 @@ body {
 ::selection {
   background: #C9A99A40;
 }
+
+/* ------------------------------------------------------------------
+ * Motion primitives
+ *
+ * These keyframes back the global hover/press feel (FAB pulse, page
+ * fade-in, sidebar hover slide). Anything declared here must be
+ * automatically disabled by `prefers-reduced-motion: reduce` lower
+ * down, so users who opt out of motion get a quiet, instant UI.
+ * ------------------------------------------------------------------ */
+
+@keyframes pinhub-fab-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+.fab-pulse-ring {
+  animation: pinhub-fab-pulse 2.4s ease-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Subtle page-enter fade+slide. Applied on every route change via
+ * `<PageTransition>` so navigation never feels like a hard cut. */
+@keyframes pinhub-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pinhub-page-in 220ms ease-out both;
+}
+
+/* Sidebar hover indicator — a faint pill that slides in from the left
+ * when the cursor is over a nav item. Pure CSS so it stays cheap. */
+.sidebar-item {
+  position: relative;
+}
+.sidebar-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #C9A99A;
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 180ms ease;
+}
+.sidebar-item:hover::before,
+.sidebar-item[data-active="true"]::before {
+  transform: scaleY(1);
+}
+
+/* OS-level opt-out — turns every animation we ship into an instant
+ * state change. The `!important` is required because Tailwind utility
+ * classes like `transition-*` would otherwise override the override. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

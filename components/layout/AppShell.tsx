@@ -6,6 +6,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { CostMeter } from "@/components/layout/CostMeter";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { AssistantFab } from "@/components/assistant/AssistantFab";
+import { PageTransition } from "@/components/layout/PageTransition";
 
 const FULL_BLEED_PATHS = ["/login", "/onboarding"];
 
@@ -26,7 +27,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <TopBar />
-          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-6">
+            <PageTransition>{children}</PageTransition>
+          </main>
         </div>
       </div>
       <CostMeter />

@@ -27,8 +27,15 @@ export function AssistantFab() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? "Close AI assistant" : "Open AI assistant"}
         title={open ? "Close AI assistant" : "Open AI Creative Assistant"}
-        className="fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full bg-deep-espresso text-warm-ivory shadow-xl hover:bg-deep-espresso/90 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center ring-2 ring-warm-ivory"
+        className="group fab-pulse fixed bottom-6 right-6 z-[60] w-14 h-14 rounded-full bg-deep-espresso text-warm-ivory shadow-xl hover:bg-deep-espresso/90 hover:scale-105 active:scale-95 transition-transform flex items-center justify-center ring-2 ring-warm-ivory"
       >
+        {/* Soft pulsing halo so the button feels alive on otherwise quiet pages.
+            CSS-only — the @keyframes lives in globals.css and is automatically
+            disabled when the OS reports `prefers-reduced-motion: reduce`. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-dusty-rose/40 fab-pulse-ring"
+        />
         {open ? <X size={22} /> : <Sparkles size={22} />}
       </button>
       {open && <AssistantPanel onClose={() => setOpen(false)} />}

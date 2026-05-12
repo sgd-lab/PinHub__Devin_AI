@@ -76,8 +76,9 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              data-active={isActive ? "true" : "false"}
               className={cn(
-                "group/nav flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 hover:translate-x-0.5 active:translate-x-0 active:scale-[0.98]",
+                "sidebar-item group/nav flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 hover:translate-x-0.5 active:translate-x-0 active:scale-[0.98]",
                 isActive
                   ? "bg-deep-espresso text-warm-ivory"
                   : "text-charcoal hover:bg-cream-hover",
@@ -91,14 +92,7 @@ export function Sidebar() {
                 className="transition-transform duration-200 group-hover/nav:scale-110"
               />
               {!sidebarCollapsed && (
-                <>
-                  <span className="flex-1">{item.label}</span>
-                  {item.href === "/automation" && (
-                    <span className="text-[10px] bg-muted-gold/20 text-muted-gold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                      Soon
-                    </span>
-                  )}
-                </>
+                <span className="flex-1">{item.label}</span>
               )}
             </Link>
           );

@@ -15,6 +15,7 @@ import {
 } from "@/lib/ai/providers/types";
 import { decryptApiKey } from "@/lib/auth/keyCrypto";
 import { streamProviderChat } from "@/lib/ai/providers/openaiCompat";
+import { rateLimit, rateLimitHeaders } from "@/lib/security/rateLimiter";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -136,6 +137,26 @@ export async function POST(
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Rate-limit per user across the messages endpoint. Returning 429 with
+  // the standard X-RateLimit headers lets the UI back off gracefully.
+  const rl = rateLimit(user.id, "ai-chat");
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: "rate_limited",
+        message: `You're sending requests too quickly. Try again in a moment (limit: ${rl.limit}/min).`,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(Math.max(1, Math.ceil((rl.resetAtMs - Date.now()) / 1000))),
+          ...rateLimitHeaders(rl),
+        },
+      }
+    );
   }
 
   const body = (await req.json().catch(() => null)) as {

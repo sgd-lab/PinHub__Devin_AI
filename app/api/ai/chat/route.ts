@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/db/supabaseServer";
 import { runChatStream } from "@/lib/ai/serverAi";
 import { estimateProviderCost } from "@/lib/ai/usageCost";
+import { rateLimit, rateLimitHeaders } from "@/lib/security/rateLimiter";
 import type {
   AITaskKind,
   ChatMessage,
@@ -47,6 +48,24 @@ export async function POST(req: NextRequest) {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  const rl = rateLimit(user.id, "ai-generate");
+  if (!rl.allowed) {
+    return new Response(
+      JSON.stringify({
+        error: "rate_limited",
+        message: `You're sending requests too quickly. Try again in a moment (limit: ${rl.limit}/min).`,
+      }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(Math.max(1, Math.ceil((rl.resetAtMs - Date.now()) / 1000))),
+          ...rateLimitHeaders(rl),
+        },
+      }
+    );
   }
 
   const body = (await req.json().catch(() => null)) as {
